@@ -1,0 +1,98 @@
+dataloader:
+  paths:
+    # The keys are arbitrary here, used when calling the dataset class with "split" key
+    # Each key should point to a directory containing the data files, which can be globbed with the pattern key below
+    # Alternatively, a list of paths to the .root files can be supplied, for some or all of the splits
+    # TODO: Update the paths to your data
+    train: "/path/to/processed/JetNet/train"
+    val: "/path/to/processed/JetNet/val"
+    test: "/path/to/processed/JetNet/test"
+
+  patterns: 
+    - '**/gqt_*.h5'
+
+  dtype: float32 # Not used in the current implementation
+
+  batch_size: 1024
+  # fixed: pad to the max_seq_length in all cases
+  # max: pad to min(max_seq_length, max sequence length in the dataset)
+  # all: pad to the maximum sequence length in the dataset
+  max_seq_length: 30
+  seq_pad_strategy: fixed
+  drop_last: 0 # 0: no drop, 1: drop last unfilled batch, 2: drop unfilled batches per file
+
+  transformations:
+    - processor: jetnet_toptagging_labeler
+      args:
+        - jet_label
+      outputs:
+        - label
+    # Jets
+    - processor: get_jet_kinematics
+      args:
+        - jet_nparticles
+        - jet_energy
+        - jet_pt
+        - jet_eta
+        - jet_phi
+      outputs:
+        - norm_jet_nparticles
+        - norm_log_jet_energy
+        - norm_log_jet_pt
+        - norm_jet_eta
+        - norm_jet_phi
+    # Particles
+    - processor: get_ParT_kinematics
+      kwargs:
+        part_energy: part_energy
+        part_px: part_px
+        part_py: part_py
+        part_pz: part_pz
+        part_deta: part_deta
+        part_dphi: part_dphi
+        jet_energy: jet_energy
+        jet_pt: jet_pt
+        jet_eta: jet_eta
+        jet_phi: jet_phi
+      outputs:
+        - norm_part_energy
+        - norm_part_px
+        - norm_part_py
+        - norm_part_pz
+        - norm_log_part_pt
+        - norm_log_part_energy
+        - norm_log_rel_part_pt
+        - norm_log_rel_part_energy
+        - norm_part_delta_R
+        - norm_part_deta
+        - norm_part_dphi
+        # not to be used
+        - dummy_jet_energy
+        - dummy_jet_pt
+        - dummy_jet_eta
+        - dummy_jet_phi
+  outputs:
+    sequence_mask: part_is_real
+    sequence:
+      # Sequence variables. Concatenated to (B, N, D) and (B, N) for the data and mask tensors
+      # Particle variables (using normalized versions)
+      - norm_part_px
+      - norm_part_py
+      - norm_part_pz
+      - norm_part_energy
+      - norm_log_part_pt
+      - norm_log_part_energy
+      - norm_log_rel_part_pt
+      - norm_log_rel_part_energy
+      - norm_part_delta_R
+      - norm_part_deta
+      - norm_part_dphi
+    class_:
+      # Class variables. Concatenated to (B, D) for the target tensor
+      # - norm_jet_nparticles
+      - norm_log_jet_energy
+      - norm_log_jet_pt
+      - norm_jet_eta
+      - norm_jet_phi
+    aux:
+      - label

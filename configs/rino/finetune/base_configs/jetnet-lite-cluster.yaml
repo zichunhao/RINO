@@ -1,0 +1,246 @@
+# Path placeholders:
+# - PROJECT_ROOT: root directory of the project
+# - EPOCHNUM: epoch number
+# - JOBNAME: specified by name
+
+name: finetune-jetnet-lite-cluster
+
+# Device configuration
+device: "cuda"  # or "cpu"
+accelerate: true  # whether to use Huggingface accelerate
+
+# Parameters for the backbone model
+model_type: "JetTransformerEncoder"
+compile_model: false
+model_params:
+  jet_dim: 4    # dimension of the jet features
+  proj_dim: 32  # representation dimension
+  d_model: 64  # encoder's dimension
+  nhead: 4  # number of heads in the multiheadattention models
+  num_encoder_layers: 4  # number of sub-encoder-layers in the encoder
+  dim_feedforward: 256  # dimension of the feedforward network model
+  activation: "gelu"
+  norm_first: true
+  pooling: "cls_jet"  # aggregation method; class: use a class token; mean: use mean pooling
+  d_head_hidden: 256  # hidden dimension of output head
+  head_l2_norm: true   # whether to apply L2 normalization to the projection head's output before the last layer
+  head_weight_norm: true  # whether to apply weight normalization to the last layer of the projection head
+
+# Parameters for classification head
+head_params:
+  output_dim: 1  # number of output classes: QCD vs Top
+  hidden_dims: [16, 8]
+  activations: ["GELU", "GELU"] # or a single string for all layers
+  batch_norms: [false, false]  # or a single boolean for all layers
+  dropouts: [0.1, 0.1]  # or a single float for all layers
+  xavier_init: true
+
+pre_aug_norm: false  # whether to normalize the input before augmentation
+
+shuffle:
+  training: true
+  inference: false
+
+# Training parameters
+training:
+  dataloader:
+    train:
+      preprocessed: true
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/jetnet/ParT-kinematics.yaml"
+      num_workers: 6 # number of workers for dataloader
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 1000
+        patterns: 
+          - 'gqt_train.h5'
+        cache_size: 60
+        size_multiplier: 2.5
+        preload_workers: 10
+    val:
+      preprocessed: true
+      cached: 20
+      config: "PROJECT_ROOT/configs/dataloaders/jetnet/ParT-kinematics.yaml"
+      num_workers: 6 # number of workers for dataloader
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 2000
+        patterns: 
+          - 'gqt_val.h5'
+        cache_size: 20
+        size_multiplier: 2.5
+        preload_workers: 10
+  grad_clip: 1.0 # gradient clip (if needed)
+  autograd_detect_anomaly: false
+  checkpoints_filename: "model_checkpoint_EPOCHNUM.pt"
+  checkpoints_dir: "PROJECT_ROOT/experiments/finetune_jetnet/JOBNAME/checkpoints"
+  backbone_weight_path: "PROJECT_ROOT/experiments/dino-vanilla-lite-cluster/checkpoints/model_checkpoint_best.pt" # path to pretrained backbone weights
+  load_epoch: # epoch to reload
+  freeze_embedding: false
+  freeze_backbone: 40
+  num_epochs: 100
+  patience: 100
+  bce_pos_weight: 2.0  # BCE loss positive class weight
+  use_focal_loss: false
+  lwf_alpha: 0  # learning without forgetting parameters
+  l2sp_alpha: 0  # L2-sp (starting point) parameters
+  optimizer:
+    name: "AdamW"
+    params:
+      lr: 1.e-3
+      betas: [0.9, 0.999]
+      eps: 1.e-6
+      weight_decay: 0.01
+    backbone_lr_factor: 1.e-2  # learning rate factor for the backbone model
+  scheduler:
+    name: "SequentialLR"
+    params:
+      milestones: [10]
+      schedulers:
+        - name: "CosineScheduler"
+          params:
+            base_value: 1.e-4
+            final_value: 1.0
+            total_iters: 10
+        - name: "CosineScheduler"
+          params:
+            base_value: 1.0
+            final_value: 1.e-3
+            total_iters: 90
+
+# Inference
+inference:
+  dataloader:
+    # jetclass splits
+    train_jetclass:
+      preprocessed: false
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/raw/ParT-test-kinematics.yaml"
+      num_workers: 6 # number of workers for dataloader
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 1000
+        batch_size_atomic: 1000
+        patterns: 
+          - '**/T*.root'  # Top
+          - '**/ZJetsToNuNu_*.root'  # QCD
+        cache_size: 160
+        size_multiplier: 2.5
+        preload_workers: 6
+    val_jetclass:
+      preprocessed: false
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/raw/ParT-test-kinematics.yaml"
+      num_workers: 6 # number of workers for dataloader
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 1000
+        batch_size_atomic: 1000
+        patterns: 
+          - '**/T*.root'  # Top
+          - '**/ZJetsToNuNu_*.root'  # QCD
+        cache_size: 20
+        size_multiplier: 2.5
+        preload_workers: 6
+    test_jetclass:
+      preprocessed: false
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/raw/ParT-test-kinematics.yaml"
+      num_workers: 6 # number of workers for dataloader
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 1000
+        batch_size_atomic: 1000
+        patterns: 
+          - '**/T*.root'  # Top
+          - '**/ZJetsToNuNu_*.root'  # QCD
+        cache_size: 20
+        size_multiplier: 2.5
+        preload_workers: 6
+    # JetNet splits
+    train_jetnet:
+      preprocessed: true
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/jetnet/ParT-kinematics.yaml"
+      num_workers: 6 # number of workers for dataloader
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 1000
+        patterns: 
+          - 'gqt_train.h5'
+        cache_size: 60
+        size_multiplier: 2.5
+        preload_workers: 10
+    val_jetnet:
+      preprocessed: true
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/jetnet/ParT-kinematics.yaml"
+      num_workers: 6 # number of workers for dataloader
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 2000
+        patterns: 
+          - 'gqt_val.h5'
+        cache_size: 20
+        size_multiplier: 2.5
+        preload_workers: 10
+    test_jetnet:
+      preprocessed: true
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/jetnet/ParT-kinematics.yaml"
+      num_workers: 6 # number of workers for dataloader
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 2000
+        patterns: 
+          - 'gqt_test.h5'
+        cache_size: 20
+        size_multiplier: 2.5
+        preload_workers: 10
+    # Toptagging splits
+    train_toptagging:
+      preprocessed: true
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/toptagging/ParT-kinematics.yaml"
+      num_workers: 6 # number of workers for dataloader
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 1000
+        patterns: 
+          - 'train.h5'
+        cache_size: 60
+        size_multiplier: 2.5
+        preload_workers: 10
+    val_toptagging:
+      preprocessed: true
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/toptagging/ParT-kinematics.yaml"
+      num_workers: 6 # number of workers for dataloader
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 2000
+        patterns: 
+          - 'validation.h5'
+        cache_size: 20
+        size_multiplier: 2.5
+        preload_workers: 10
+    test_toptagging:
+      preprocessed: true
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/toptagging/ParT-kinematics.yaml"
+      num_workers: 6 # number of workers for dataloader
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 2000
+        patterns: 
+          - 'validation.h5'
+        cache_size: 20
+        size_multiplier: 2.5
+        preload_workers: 10
+  # load_epoch: best
+  load_epoch: best
+  # splits: ["val_toptagging", "val_jetclass", "test_toptagging", "test_jetclass", "train_toptagging", "train_jetclass"]
+  # splits: ["test_jetclass", "test_toptagging", "test_jetnet"]
+  splits: ["test_toptagging", "test_jetclass", "test_jetnet"]
+  output_filename: "output_SPLIT_EPOCHNUM.pt"
+  output_dir: "PROJECT_ROOT/experiments/finetune_jetnet/JOBNAME/inference"

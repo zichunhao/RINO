@@ -58,8 +58,8 @@ def get_scheduler(
         scheduler = ConstantLR(optimizer, **scheduler_params)
     elif scheduler_name == "cosinescheduler":
         scheduler = LambdaLR(
-            optimizer, 
-            lr_lambda=lambda it: get_cosine_schedule(iter=it, **scheduler_params)
+            optimizer,
+            lr_lambda=lambda it: get_cosine_schedule(iter=it, **scheduler_params),
         )
     elif scheduler_name == "sequentiallr":
         scheduler = _create_sequential_scheduler(optimizer, scheduler_params)
@@ -90,21 +90,21 @@ def _create_sequential_scheduler(optimizer: Optimizer, scheduler_params: dict):
     """Create a SequentialLR scheduler from config."""
     schedulers_config = scheduler_params.get("schedulers", [])
     milestones = scheduler_params.get("milestones", [])
-    
+
     if not schedulers_config:
         LOGGER.error("SequentialLR requires 'schedulers' list in params")
         return None
-    
+
     if not milestones:
         LOGGER.error("SequentialLR requires 'milestones' list in params")
         return None
-    
+
     # Create individual schedulers
     schedulers = []
     for i, sched_config in enumerate(schedulers_config):
         sched_name = sched_config.get("name", "").lower()
         sched_params = sched_config.get("params", {})
-        
+
         if sched_name == "steplr":
             scheduler = StepLR(optimizer, **sched_params)
         elif sched_name == "reducelronplateau":
@@ -120,15 +120,18 @@ def _create_sequential_scheduler(optimizer: Optimizer, scheduler_params: dict):
             scheduler = ConstantLR(optimizer, **sched_params)
         elif sched_name == "cosinescheduler":
             scheduler = LambdaLR(
-                optimizer, lr_lambda=lambda it: get_cosine_schedule(it, **sched_params)
+                optimizer,
+                lr_lambda=lambda it, p=sched_params: get_cosine_schedule(it, **p),
             )
         else:
             LOGGER.error(f"Unknown scheduler type in SequentialLR: {sched_name}")
             return None
-        
+
         schedulers.append(scheduler)
-        LOGGER.info(f"Created scheduler {i} for SequentialLR: {scheduler.__class__.__name__}")
-    
+        LOGGER.info(
+            f"Created scheduler {i} for SequentialLR: {scheduler.__class__.__name__}"
+        )
+
     return SequentialLR(optimizer, schedulers=schedulers, milestones=milestones)
 
 

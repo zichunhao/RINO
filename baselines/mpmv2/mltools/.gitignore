@@ -1,0 +1,9 @@
+*.pyc
+.*cache*
+.my*
+.ruff*
+*.egg-info
+*.egg-info/*
+build/*
+dist/*
+.git

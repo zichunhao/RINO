@@ -1,0 +1,20 @@
+workflow:
+  rules: # Run on everything except merge requests
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - when: always
+
+stages:
+  - lint
+  - build
+  - tests
+  - coverage
+  - cleanup
+
+
+include:
+  - .gitlab/.ci-pre-commit.yaml
+  - .gitlab/.ci-build.yaml
+  - .gitlab/.ci-test.yaml
+  - .gitlab/.ci-coverage.yaml
+  - .gitlab/.ci-cleanup.yaml

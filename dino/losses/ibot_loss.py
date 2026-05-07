@@ -212,8 +212,9 @@ class iBOTLoss(nn.Module):
         for i in range(batch_size):
             valid_indices = mask[i].nonzero(as_tuple=True)[0]
             num_valid = len(valid_indices)
-            if num_valid > 0:
-                num_to_mask = max(1, int(num_valid * self.mask_ratio))
+            # Need at least 2 valid particles to mask any (always keep ≥1 unmasked).
+            if num_valid >= 2:
+                num_to_mask = max(1, min(num_valid - 1, int(num_valid * self.mask_ratio)))
                 chosen = valid_indices[
                     torch.randperm(num_valid, device=device)[:num_to_mask]
                 ]
@@ -226,7 +227,14 @@ class iBOTLoss(nn.Module):
     ) -> torch.Tensor:
         _, N = mask.shape
         valid_counts = mask.sum(dim=1, keepdim=True).float()  # (B, 1)
-        num_to_mask = (valid_counts * self.mask_ratio).clamp(min=1).long()  # (B, 1)
+        valid_long = valid_counts.long()
+        # Mask between 1 and (valid - 1) so at least one unmasked particle remains.
+        # When valid_counts <= 1, the upper bound is 0 → no masking for that sample.
+        num_to_mask = (valid_counts * self.mask_ratio).long()
+        num_to_mask = torch.minimum(
+            num_to_mask.clamp(min=1),
+            (valid_long - 1).clamp(min=0),
+        )  # (B, 1)
 
         # Random scores only for valid positions; invalid → -inf so they rank last
         rand = torch.where(

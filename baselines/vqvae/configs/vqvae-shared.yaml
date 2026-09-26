@@ -1,0 +1,41 @@
+# Shared 512-code VQ-VAE tokenizer used by MPMv1 (masked-token targets) and
+# OmniJet-alpha (autoregressive tokens). Trained once on the JetClass QCD
+# pretraining set in the mpm-rino HDF5 format (see configs/data-README.md).
+#
+# Run (from the repository root):
+#   python baselines/vqvae/train.py -c baselines/vqvae/configs/vqvae-shared.yaml
+# The checkpoint used downstream is
+#   experiments/vqvae/vqvae-shared/checkpoints/last.ckpt
+
+name: "vqvae-shared"
+experiment_dir: "PROJECT_ROOT/experiments/vqvae/JOBNAME"
+use_wandb: false    # set true to log to Weights & Biases
+precision: "auto"  # bf16-mixed if supported, else fp32
+
+model_params:
+  input_dim: 7        # RINO kinematics features
+  latent_dim: 16
+  hidden_dim: 128
+  num_heads: 8
+  num_layers: 3
+  num_codes: 512
+  alpha: 10.0         # VQ loss weight
+  vq_kwargs:
+    beta: 0.9
+    kmeans_init: true
+    affine_lr: 2.0
+    sync_nu: 2.0
+    replace_freq: 10
+
+training:
+  num_epochs: 100
+  lr: 2.e-4
+  weight_decay: 0.01
+  grad_clip: 5.0
+
+  dataloader:
+    train_path: PROJECT_ROOT/data/JetClass/mpm-rino/train_100M_combined_QCD.h5
+    val_path: PROJECT_ROOT/data/JetClass/mpm-rino/val_5M_combined_QCD.h5
+    batch_size: 2000
+    num_workers: 4
+    csts_dim: 7

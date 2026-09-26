@@ -1,0 +1,15 @@
+_target_: src.models.gpt.JetGPT
+
+vae_path: null #${paths.root_dir}/resources/vqvae.pkl
+kmeans_path: ${paths.root_dir}/resources/kmeans_16384.pkl
+
+# GPT style training is more unstable so we use the extra layer normalisation
+encoder_config:
+  do_final_norm: True
+
+defaults:
+  - encoder_config: small.yaml
+  - optimizer: default.yaml
+  - scheduler: cosine.yaml
+  - class_head: linear.yaml
+  - _self_

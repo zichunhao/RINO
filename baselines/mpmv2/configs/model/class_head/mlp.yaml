@@ -1,0 +1,5 @@
+_target_: src.models.utils.MLPHead
+_partial_: true
+hidden_dims: [256, 128]
+dropout: 0.3
+use_batchnorm: true

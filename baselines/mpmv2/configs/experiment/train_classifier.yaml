@@ -1,0 +1,39 @@
+# @package _global_
+
+defaults:
+  - override /datamodule: jetclass.yaml
+  - override /model: classifier.yaml
+  - override /callbacks: finetune.yaml
+
+# Faster warmup
+model:
+  scheduler:
+    warmup_steps: 10_000
+  optimizer:
+    lr: 1.0e-4
+
+# Dont train for too long
+trainer:
+  max_epochs: null
+  max_steps: 200_001 # One full epoch as 1e8 jets / 500 batch size + epsilon
+  val_check_interval: 20_000
+
+# Key parameters for fine-tuning
+n_jets: 1000_000
+
+csts_dim: 7
+datamodule:
+  batch_size: 500 # For smaller GPUs
+  train_set:
+    n_jets: ${n_jets}
+    csts_dim: ${csts_dim}
+  val_set:
+    n_jets: ${min:1000_000, ${n_jets}} # Cap at 1M for validation is enough
+    csts_dim: ${csts_dim}
+  test_set:
+    n_jets: 2000_000 # 2M for testing is enough
+    csts_dim: ${csts_dim}
+
+# Bookkeeping
+project_name: jetssl_finetune_paper
+network_name: classifier_${n_jets}

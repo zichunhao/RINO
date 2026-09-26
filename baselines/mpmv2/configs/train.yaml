@@ -1,0 +1,33 @@
+# @package _global_
+
+# Order indicates overwriting
+defaults:
+  - trainer: default.yaml
+  - model: mpm.yaml
+  - datamodule: jetclass_masked.yaml
+  - loggers: default.yaml
+  - hydra: default.yaml
+  - paths: default.yaml
+  - callbacks: default.yaml
+  - experiment: null
+  - _self_
+
+seed: 42 # For reproducibility
+project_name: mpm # Determines output directory path and wandb project
+network_name: mpm # Used for both saving and wandb
+full_path: ${paths.full_path} # Exposed at top level for hydra_utils compatibility
+# ckpt_path: PROJECT_ROOT/experiments/mpm/pretrain-mpm/checkpoints/45000.ckpt  # Checkpoint path to resume training
+ckpt_path: null  # Checkpoint path to resume training
+weight_ckpt_path: null # Checkpoint path to load weights (but not optimizers etc)
+
+# Extra tweaks available with the new pytorch version
+precision: medium # Should use medium if on ampere gpus
+compile: null # Can set to default for faster compiles
+tags: null # Extra tags passed to the logger
+
+# COMPLETELY replaces the above config with what is contained in ${paths.full_path}
+# This is ideal for resuming a job, log to the same directory
+# Will also resume the loggers and set the ckpt_path to the latest
+full_resume: false
+ckpt_flag: last.ckpt # Name of the checkpoint file, can use wildcards
+# ckpt_flag: 45000.ckpt

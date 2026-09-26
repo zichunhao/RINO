@@ -1,0 +1,21 @@
+# path to root directory
+# this requires PROJECT_ROOT environment variable to exist
+# (gabbro/train.py sets it to baselines/omnijet_alpha via pyrootutils)
+# the RINO data and experiment paths in the rino_* experiment configs are
+# given relative to it, as ${paths.root_dir}/../../{data,experiments}/...
+root_dir: ${oc.env:PROJECT_ROOT}
+
+# path to data directory
+# data_dir: ${oc.env:DATA_DIR}
+
+# path to logging directory
+# (defaults to <repo root>/experiments/omnijet_alpha if LOG_DIR is not set)
+log_dir: ${oc.env:LOG_DIR,${paths.root_dir}/../../experiments/omnijet_alpha}
+
+# path to output directory, created dynamically by hydra
+# path generation pattern is specified in `configs/hydra/default.yaml`
+# use it to store all files generated during the run, like ckpts and metrics
+output_dir: ${hydra:run.dir}
+
+# path to working directory
+work_dir: ${hydra:runtime.cwd}

@@ -1,0 +1,72 @@
+# @package _global_
+#
+# MPMv1 pretraining with JetTransformerEncoder backbone and RINO kinematics.
+# Uses the shared VQ-VAE for tokenization, same backbone architecture as RINO.
+# The prediction head has one output per VQ-VAE code (read from the checkpoint).
+#
+# Inputs (default locations; ${paths.root_dir} is this package, baselines/mpmv1):
+#   - combined JetClass HDF5 files ({train_100M,val_5M,test_20M}_combined_QCD.h5)
+#     from baselines/mpmv2/scripts/make_jetclass.py + combine_jetclass.py,
+#     in <repo>/data/JetClass/mpm-rino/
+#   - the shared VQ-VAE checkpoint from baselines/vqvae/train.py, in
+#     <repo>/experiments/vqvae/vqvae-shared/checkpoints/last.ckpt
+#   - optional: *_tokens.h5 files from scripts/precompute_tokens.py, which
+#     replace the tokenizer call at training time
+#
+# Run from baselines/mpmv1/:
+#   python scripts/train.py experiment=train_mpm_rino network_name=mpmv1-rino
+
+defaults:
+  - override /model: vq_vae_mpm_rino.yaml
+
+paths:
+  jetclass_data: ${paths.root_dir}/../../data/JetClass/mpm-rino
+  output_dir: ${paths.root_dir}/../../experiments/mpmv1
+  # Relative to output_dir: model_path = ${paths.output_dir}/${paths.vq_vae_model}
+  vq_vae_model: ../vqvae/vqvae-shared/checkpoints/last.ckpt
+
+# Single GPU (A100).
+trainer:
+  max_epochs: 100
+  devices: 1
+  precision: bf16-mixed
+
+# The positional encoder (trans_encoder.yaml) comes from the model config.
+# linear_track replaces the ClassAttention quality monitor with a linear probe.
+model:
+  linear_track: True
+  optimizer:
+    lr: 3.0e-4  # linearly scaled from 5e-5 at batch size 500
+
+datamodule:
+  _target_: src.datamodules.iterable_lightning.PointCloudDataModule
+  data_conf:
+    iterator:
+      _target_: src.datamodules.rino_h5_iterator.RINOH5Iterator
+      _partial_: True
+      path: ${paths.jetclass_data}
+    iterator_wrapper:
+      _target_: src.datamodules.rino_wrapper.RINOIteratorWrapper
+      _partial_: True
+    n_steps: 10_000_000
+    n_jets: 50_000
+    n_csts: 128
+    datasets:
+      c0: QCD_jj_pt_450_1200
+    coordinates:
+      edge: []
+      node:
+      - rino_passthrough
+      high: []
+    del_r_edges: 0
+  loader_kwargs:
+    pin_memory: true
+    batch_size: 3000
+    # RINOH5Iterator does not shard across DataLoader workers: each worker
+    # would get a copy with the same RNG state (train) or start offset (val)
+    # and yield the same chunks, so data is read in the main process.
+    num_workers: 0
+    drop_last: True
+
+project_name: mpmv1-rino
+network_name: mpmv1-rino_${now:%Y-%m-%d}_${now:%H-%M-%S-%f}

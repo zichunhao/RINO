@@ -1,0 +1,17 @@
+# configs/model/mpm.yaml
+_target_: src.models.mpm.MaskedParticleModelling
+_recursive_: true
+
+use_id: True
+objective: mae
+use_hlv: False
+
+optimizer:
+  lr: 5.0e-4
+
+defaults:
+  - encoder_config: baseline.yaml
+  - decoder_config: baseline.yaml
+  - optimizer: default.yaml
+  - scheduler: warmup_decay.yaml
+  - _self_

@@ -1,0 +1,11 @@
+defaults:
+  - jetclass_rino
+
+transforms:
+  - _target_: src.datamodules.preprocessing.batch_masking
+    _partial_: true
+    fn:
+      _target_: src.datamodules.masking.random_masking
+      _partial_: true
+      mask_fraction: ${mask_fraction}
+  # No quantile preprocessing — RINO features are already normalized

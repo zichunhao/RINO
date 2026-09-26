@@ -1,0 +1,111 @@
+dataloader:
+  paths:
+    # The keys are arbitrary here, used when calling the dataset class with "split" key
+    # Each key should point to a directory containing the data files, which can be globbed with the pattern key below
+    # Alternatively, a list of paths to the .root files can be supplied, for some or all of the splits
+    # TODO: Update the paths to your data
+    train: PROJECT_ROOT/data/JetClass/raw/train_100M/
+    val: PROJECT_ROOT/data/JetClass/raw/val_5M/
+    test: PROJECT_ROOT/data/JetClass/raw/test_20M/
+
+  patterns: 
+  - '**/*.root'
+
+  # Which tree to use for determining the length of the dataset
+  length_from: /tree
+
+  dtype: float32 # Not used in the current implementation
+  batch_size: 500
+  batch_size_atomic: 500
+  max_seq_length: 183 # max number of particles in JetClass is 183
+  seq_pad_strategy: fixed # max or fixed. If fixed, pad to max_seq_length in all cases
+  drop_last: 0 # 0: no drop, 1: drop last unfilled batch, 2: drop unfilled batches per file
+
+  transformations:
+    # Processors will be executed in sequence.
+    # Allowed keys: processor"", args[], kwargs{}, outputs[]. One of args or kwargs must be present.
+    - processor: jetclass_labeler
+      kwargs:
+        label_QCD: tree/label_QCD
+        label_Hbb: tree/label_Hbb
+        label_Hcc: tree/label_Hcc
+        label_Hgg: tree/label_Hgg
+        label_H4q: tree/label_H4q
+        label_Hqql: tree/label_Hqql
+        label_Zqq: tree/label_Zqq
+        label_Wqq: tree/label_Wqq
+        label_Tbqq: tree/label_Tbqq
+        label_Tbl: tree/label_Tbl
+      outputs:
+        - label
+    # Jets
+    - processor: get_jet_kinematics
+      args:
+        - tree/jet_nparticles
+        - tree/jet_energy
+        - tree/jet_pt
+        - tree/jet_eta
+        - tree/jet_phi
+      outputs:
+        - norm_jet_nparticles
+        - norm_log_jet_energy
+        - norm_log_jet_pt
+        - norm_jet_eta
+        - norm_jet_phi
+    # Particles
+    - processor: get_rino_kinematics
+      kwargs:
+        part_energy: tree/part_energy
+        part_px: tree/part_px
+        part_py: tree/part_py
+        part_pz: tree/part_pz
+        part_deta: tree/part_deta
+        part_dphi: tree/part_dphi
+        jet_energy: tree/jet_energy
+        jet_pt: tree/jet_pt
+      outputs:
+        - norm_log_part_pt
+        - norm_log_part_energy
+        - norm_log_rel_part_pt
+        - norm_log_rel_part_energy
+        - norm_part_delta_R
+        - norm_part_deta
+        - norm_part_dphi
+
+    # Jet mass (ungroomed + soft-drop)
+    - processor: compute_jet_mass
+      kwargs:
+        jet_energy: tree/jet_energy
+        jet_pt: tree/jet_pt
+        jet_eta: tree/jet_eta
+        jet_sdmass: tree/jet_sdmass
+      outputs:
+        - jet_mass
+        - jet_sdmass
+        - log_jet_mass
+        - log_jet_sdmass
+
+  outputs:
+    sequence:
+      - norm_log_part_pt
+      - norm_log_part_energy
+      - norm_log_rel_part_pt
+      - norm_log_rel_part_energy
+      - norm_part_delta_R
+      - norm_part_deta
+      - norm_part_dphi
+    class_:
+      # Class variables. Concatenated to (B, D) for the target tensor
+      # - norm_jet_nparticles
+      - norm_log_jet_energy
+      - norm_log_jet_pt
+      - norm_jet_eta
+      - norm_jet_phi
+    aux:
+      # No processing. A dictionary of tensors will be returned
+      - label
+      - jet_mass
+      - jet_sdmass
+      - log_jet_mass
+      - log_jet_sdmass
+

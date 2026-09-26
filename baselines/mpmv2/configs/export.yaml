@@ -1,0 +1,10 @@
+# @package _global_
+
+defaults:
+  - hydra: default.yaml
+  - paths: default.yaml
+  - _self_
+
+project_name: mpm
+network_name: mpm
+ckpt_flag: best.ckpt

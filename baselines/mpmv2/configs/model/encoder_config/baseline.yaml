@@ -1,0 +1,18 @@
+dim: 256
+num_layers: 8
+pack_inputs: False # Much faster training but requires half precision
+do_input_linear: False # Keep this false to not mess with the enc_to_dec layer
+do_absolute_enc: False # No absolute positional encoding for encoder!
+num_registers: 8
+do_final_norm: True
+layer_config:
+  attn_config:
+    num_heads: 8
+    dropout: 0.1
+    do_qknorm: True
+  ff_config:
+    mult: 2
+    dropout: 0.1
+  # res_config:
+  #   gate_init: 0
+  #   drop_path: 0.1

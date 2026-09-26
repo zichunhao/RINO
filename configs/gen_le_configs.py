@@ -26,7 +26,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUT_DIR = PROJECT_ROOT / "configs" / "finetune"
 
-# Polar-binned positional encoding of the RINO pretraining configs
+# Polar-binned positional encoding of the RINO pretraining config
 PBIN_PE = {
     "mode": "polar_binned",
     "input_indices": [-2, -1],
@@ -45,17 +45,9 @@ MODELS = {
         "pos_encoding_kwargs": PBIN_PE,
         "head_hidden_dims": [256, 128],
     },
-    # RINO before teacher tuning, pretrained with configs/dino/g6-l2-pbin.yaml
-    "dino-pbin": {
-        "pooling": "mean",
-        "backbone_weight_path": "PROJECT_ROOT/experiments/dino-g6-l2-pbin/checkpoints/model_checkpoint_best.pt",
-        "freeze_backbone": 5,
-        "pos_encoding_kwargs": PBIN_PE,
-        "head_hidden_dims": [256, 128],
-    },
     "mpmv1": {
         "pooling": "mean",
-        "backbone_weight_path": "PROJECT_ROOT/experiments/mpmv1/parcel-baselines/mpmv1-rino/backbone.pt",
+        "backbone_weight_path": "PROJECT_ROOT/experiments/mpmv1/mpmv1-rino/backbone.pt",
         "freeze_backbone": 5,
         "head_hidden_dims": [256, 128],
     },
@@ -73,14 +65,14 @@ MODELS = {
     },
     "omnijet": {
         "pooling": "last_token",
-        "backbone_weight_path": "PROJECT_ROOT/experiments/omnijet_alpha/omnijet-parcel/backbone.pt",
+        "backbone_weight_path": "PROJECT_ROOT/experiments/omnijet_alpha/omnijet-rino/backbone.pt",
         "freeze_backbone": 5,
         "head_hidden_dims": [256, 128],
     },
     # OmniJet-alpha with mean pooling, as in the main comparison table
     "omnijet-mean": {
         "pooling": "mean",
-        "backbone_weight_path": "PROJECT_ROOT/experiments/omnijet_alpha/omnijet-parcel/backbone.pt",
+        "backbone_weight_path": "PROJECT_ROOT/experiments/omnijet_alpha/omnijet-rino/backbone.pt",
         "freeze_backbone": 5,
         "head_hidden_dims": [256, 128],
     },
@@ -95,45 +87,6 @@ MODELS = {
     "jclr-3tier-recon": {
         "pooling": "mean",
         "backbone_weight_path": "PROJECT_ROOT/experiments/jetclr-3tier-recon/checkpoints/model_checkpoint_best.pt",
-        "freeze_backbone": 5,
-        "head_hidden_dims": [256, 128],
-    },
-    "i5g2l6pbin": {
-        "pooling": "mean",
-        "backbone_weight_path": "PROJECT_ROOT/experiments/dino-ibot-g2l6-pbin/checkpoints/model_checkpoint_best.pt",
-        "freeze_backbone": 5,
-        "pos_encoding_kwargs": PBIN_PE,
-        "head_hidden_dims": [256, 128],
-    },
-    "i5g6l2pbin": {
-        "pooling": "mean",
-        "backbone_weight_path": "PROJECT_ROOT/experiments/dino-ibot-g6l2-pbin/checkpoints/model_checkpoint_best.pt",
-        "freeze_backbone": 5,
-        "pos_encoding_kwargs": PBIN_PE,
-        "head_hidden_dims": [256, 128],
-    },
-    "i5g6l2ptr": {
-        "pooling": "cls_token_concat_mean",
-        "backbone_weight_path": "PROJECT_ROOT/experiments/dino-ibot-g6l2-ptrank/checkpoints/model_checkpoint_best.pt",
-        "freeze_backbone": 5,
-        "head_hidden_dims": [512, 256],
-    },
-    "i5mixpbin": {
-        "pooling": "mean",
-        "backbone_weight_path": "PROJECT_ROOT/experiments/dino-ibot-mixed-pbin/checkpoints/model_checkpoint_best.pt",
-        "freeze_backbone": 5,
-        "pos_encoding_kwargs": PBIN_PE,
-        "head_hidden_dims": [256, 128],
-    },
-    "i5mixptr": {
-        "pooling": "cls_token_concat_mean",
-        "backbone_weight_path": "PROJECT_ROOT/experiments/dino-ibot-mixed-ptrank/checkpoints/model_checkpoint_best.pt",
-        "freeze_backbone": 5,
-        "head_hidden_dims": [512, 256],
-    },
-    "i5mixnope": {
-        "pooling": "mean",
-        "backbone_weight_path": "PROJECT_ROOT/experiments/dino-ibot-mixed-nope/checkpoints/model_checkpoint_best.pt",
         "freeze_backbone": 5,
         "head_hidden_dims": [256, 128],
     },

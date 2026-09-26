@@ -1,0 +1,79 @@
+dataloader:
+  paths:
+    train: PROJECT_ROOT/data/JetNet/JetNet30_gqt
+    val: PROJECT_ROOT/data/JetNet/JetNet30_gqt
+    test: PROJECT_ROOT/data/JetNet/JetNet30_gqt
+
+  # gqt = gluon/quark/top split files produced by JetNet preprocessing
+  patterns:
+    - '**/gqt_*.h5'
+
+  dtype: float32
+
+  batch_size: 512
+  max_seq_length: 30  # JetNet30: max 30 particles per jet
+  seq_pad_strategy: fixed
+  drop_last: 0
+
+  transformations:
+    # Top vs QCD label (top=1, g+q=0)
+    - processor: jetnet_toptagging_labeler
+      args:
+        - jet_label
+      outputs:
+        - label
+
+    # Jet-level kinematics (used for class_ token)
+    - processor: get_jet_kinematics
+      args:
+        - jet_nparticles
+        - jet_energy
+        - jet_pt
+        - jet_eta
+        - jet_phi
+      outputs:
+        - norm_jet_nparticles
+        - norm_log_jet_energy
+        - norm_log_jet_pt
+        - norm_jet_eta
+        - norm_jet_phi
+
+    # Particle-level kinematics — RINO features (7), matching pretraining
+    - processor: get_rino_kinematics
+      kwargs:
+        part_energy: part_energy
+        part_px: part_px
+        part_py: part_py
+        part_pz: part_pz
+        part_deta: part_deta
+        part_dphi: part_dphi
+        jet_energy: jet_energy
+        jet_pt: jet_pt
+      outputs:
+        - norm_log_part_pt
+        - norm_log_part_energy
+        - norm_log_rel_part_pt
+        - norm_log_rel_part_energy
+        - norm_part_delta_R
+        - norm_part_deta
+        - norm_part_dphi
+
+  outputs:
+    sequence_mask: part_is_real
+    sequence:
+      # 7 RINO features — must match SSL pretraining feature order exactly
+      - norm_log_part_pt
+      - norm_log_part_energy
+      - norm_log_rel_part_pt
+      - norm_log_rel_part_energy
+      - norm_part_delta_R
+      - norm_part_deta
+      - norm_part_dphi
+    class_:
+      # 4 jet-level features — must match SSL pretraining class_ order exactly
+      - norm_log_jet_energy
+      - norm_log_jet_pt
+      - norm_jet_eta
+      - norm_jet_phi
+    aux:
+      - label

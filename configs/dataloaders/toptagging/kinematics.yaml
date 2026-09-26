@@ -1,0 +1,71 @@
+dataloader:
+  paths:
+    train: PROJECT_ROOT/data/TopTagging/preprocessed
+    val: PROJECT_ROOT/data/TopTagging/preprocessed
+    test: PROJECT_ROOT/data/TopTagging/preprocessed
+
+  patterns:
+    - '**/*.h5'
+
+  dtype: float32
+  batch_size: 512
+  max_seq_length: 200  # TopTagging: up to 200 particles per jet
+  seq_pad_strategy: fixed
+  drop_last: 0
+
+  transformations:
+    # Top vs QCD label (already binary in TopTagging: is_signal_new)
+    # No remapping needed — label is 0/1 directly
+
+    # Jet-level kinematics
+    - processor: get_jet_kinematics
+      args:
+        - jet_nparticles
+        - jet_energy
+        - jet_pt
+        - jet_eta
+        - jet_phi
+      outputs:
+        - norm_jet_nparticles
+        - norm_log_jet_energy
+        - norm_log_jet_pt
+        - norm_jet_eta
+        - norm_jet_phi
+
+    # Particle-level kinematics — 7 RINO features
+    - processor: get_rino_kinematics
+      kwargs:
+        part_energy: part_energy
+        part_px: part_px
+        part_py: part_py
+        part_pz: part_pz
+        part_deta: part_deta
+        part_dphi: part_dphi
+        jet_energy: jet_energy
+        jet_pt: jet_pt
+      outputs:
+        - norm_log_part_pt
+        - norm_log_part_energy
+        - norm_log_rel_part_pt
+        - norm_log_rel_part_energy
+        - norm_part_delta_R
+        - norm_part_deta
+        - norm_part_dphi
+
+  outputs:
+    sequence_mask: part_is_real
+    sequence:
+      - norm_log_part_pt
+      - norm_log_part_energy
+      - norm_log_rel_part_pt
+      - norm_log_rel_part_energy
+      - norm_part_delta_R
+      - norm_part_deta
+      - norm_part_dphi
+    class_:
+      - norm_log_jet_energy
+      - norm_log_jet_pt
+      - norm_jet_eta
+      - norm_jet_phi
+    aux:
+      - label

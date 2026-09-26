@@ -1,0 +1,64 @@
+# @package _global_
+#
+# OmniJet-alpha autoregressive pretraining with JetTransformerDecoder backbone
+# and RINO kinematics. Uses online tokenization via frozen shared VQ-VAE.
+#
+# Run (from baselines/omnijet_alpha; checkpoints are written under
+# <repo root>/experiments/omnijet_alpha/omnijet-rino/runs/<run>/checkpoints/):
+#   python gabbro/train.py experiment=rino_generative \
+#       trainer.devices=<n_gpus> +trainer.precision=bf16-mixed
+
+defaults:
+  - override /model: backbone_rino.yaml
+  - override /data: iter_dataset_jetclass.yaml
+  - override /trainer: gpu.yaml
+  - override /callbacks: callbacks_for_generative_training.yaml
+  - override /logger: wandb.yaml
+
+project_name: "omnijet-rino"
+tags: ["generative", "rino"]
+
+run_note: "Autoregressive with JetTransformerDecoder + RINO kinematics"
+
+seed: 42
+
+# Data: RINO-normalized features from raw JetClass ROOT files.
+# Online tokenization by frozen VQ-VAE (no pre-tokenized data needed).
+data:
+  _target_: gabbro.data.rino_datamodule.RINODataModule
+  train_path: ${paths.root_dir}/../../data/JetClass/mpm-rino/train_100M_combined_QCD.h5
+  val_path: ${paths.root_dir}/../../data/JetClass/mpm-rino/val_5M_combined_QCD.h5
+  batch_size: 500
+  num_workers: 4
+  csts_dim: 7
+
+model:
+  vqvae_ckpt_path: ${paths.root_dir}/../../experiments/vqvae/vqvae-shared/checkpoints/last.ckpt
+  decoder_kwargs:
+    vocab_size: 514
+    d_model: 256
+    nhead: 16
+    num_layers: 8
+    norm: RMSNorm
+    activation: SwiGLU
+    layer_scale_init: 0.01
+    num_registers: 4
+    mlp_ratio: 4
+    apply_final_norm: true
+    apply_embedding_norm: true
+    max_seq_len: 256
+  lr: 1.e-3
+  weight_decay: 0.01
+
+trainer:
+  max_epochs: 100
+  gradient_clip_val: 5.0
+  log_every_n_steps: 10
+
+task_name: "omnijet-rino-generative"
+
+logger:
+  wandb:
+    project: ${project_name}
+    tags: ${tags}
+    name: ${task_name}

@@ -1,0 +1,36 @@
+# @package _global_
+
+defaults:
+  - override /datamodule: jetclass_masked
+  - override /model: mpm
+  - override /model/scheduler: cosine
+
+use_weights: False
+csts_dim: 3
+mask_fraction: 0.5
+
+datamodule:
+  train_set:
+    csts_dim: ${csts_dim}
+  val_set:
+    csts_dim: ${csts_dim}
+  test_set:
+    csts_dim: ${csts_dim}
+
+trainer:
+  max_steps: 200_000
+  val_check_interval: 5000
+
+# Base = BERT model with no registers or ID
+model:
+  objective: bert
+  use_id: False
+  encoder_config:
+    num_registers: 0
+  scheduler:
+    warmup_steps: 10_000
+
+# Model modifications
+project_name: jetssl_fixed
+network_name: mpm
+tags: ["ablation"]

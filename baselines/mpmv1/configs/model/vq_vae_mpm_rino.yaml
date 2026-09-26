@@ -1,0 +1,40 @@
+_target_: src.models.bert.IterableBert
+# Shared VQ-VAE tokenizer; its codebook size sets the number of output classes.
+model_path: ${paths.output_dir}/${paths.vq_vae_model}
+
+# Ignored while positional_encoder is set (Bert then uses the per-slot
+# positional encoding after the backbone instead).
+order_inputs: false
+max_mask: 0.3
+use_class_weights: 0
+
+# JetTransformerEncoder backbone (overrides the Hydra encoder partial).
+# When backbone_config is set, Bert.__init__ builds a JTEAdapter instead
+# of using the FullTransformerEncoder from mattstools.
+backbone_config:
+  d_model: 256
+  nhead: 16
+  num_layers: 8
+  pooling: cls_token
+  norm: RMSNorm
+  layer_scale_init: 0.01
+  num_registers: 4
+  jet_dim: 4
+  mlp_ratio: 4
+  apply_final_norm: true
+  apply_embedding_norm: true
+
+normaliser_config:
+  max_n: 1_000_000
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 5.0e-5
+  weight_decay: 0.01
+
+defaults:
+  - _self_
+  - scheduler: linear.yaml
+  - encoder: backbone_jte.yaml
+  - positional_encoder: trans_encoder.yaml

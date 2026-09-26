@@ -1,0 +1,20 @@
+# Encoder config for JetTransformerEncoder backbone.
+# Set `defaults: [encoder_config: jet_transformer]` in mpm.yaml to use this.
+# The special key `type: jet_transformer` is read by mpm.py to select the JTE path.
+# All other keys are forwarded to JetTransformerEncoder (part_dim is set automatically
+# from the data sample).
+
+type: jet_transformer
+
+d_model: 256
+nhead: 16              # RINO-consistent (was 8)
+num_layers: 8
+num_registers: 4       # RINO-consistent (was 0)
+activation: SwiGLU     # SwiGLU or GELU
+norm: RMSNorm          # RINO-consistent (was LayerNorm)
+mlp_ratio: 4
+layer_scale_init: 0.01 # RINO-consistent (was null)
+apply_final_norm: true
+apply_embedding_norm: true  # RINO-consistent (was false)
+attention_dropout: 0.0
+pooling: mean          # Required by JTE but unused in the MPM token-level setting

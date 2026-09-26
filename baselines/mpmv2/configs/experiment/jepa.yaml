@@ -1,0 +1,29 @@
+# @package _global_
+defaults:
+  - override /datamodule: jetclass_masked
+  - override /model: jepa
+
+datamodule:
+  batch_size: 1000 # Can't fit 1k with joint embedder
+
+# For long training
+# trainer:
+  # max_steps: 1000_000
+  # val_check_interval: 50_000
+  # reload_dataloaders_every_n_epochs: 1 # Needed for resuming mid-epoch
+
+# For short training
+trainer:
+  max_steps: 200_000
+  val_check_interval: 20_000
+  reload_dataloaders_every_n_epochs: 1 # Needed for resuming mid-epoch
+
+# Used by other parts of the config
+csts_dim: 7
+mask_fraction: 0.4 # Determined to be the best value for the dataset
+
+# Model modifications
+project_name: ablation
+network_name: jepa
+full_resume: False
+

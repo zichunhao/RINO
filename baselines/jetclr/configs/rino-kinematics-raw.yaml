@@ -1,0 +1,57 @@
+dataloader:
+  paths:
+    train: PROJECT_ROOT/data/JetClass/raw/train_100M/
+    val: PROJECT_ROOT/data/JetClass/raw/val_5M/
+    test: PROJECT_ROOT/data/JetClass/raw/test_20M/
+
+  # Pretraining uses QCD only (ZJetsToNuNu_*.root in JetClass naming).
+  patterns:
+  - '**/ZJetsToNuNu_*.root'
+
+  # Which tree to use for determining the length of the dataset
+  length_from: /tree
+
+  dtype: float32
+  batch_size: 500
+  batch_size_atomic: 500
+  max_seq_length: 183  # max number of particles in JetClass
+  seq_pad_strategy: fixed
+  drop_last: 1
+
+  transformations:
+    - processor: jetclass_labeler
+      kwargs:
+        label_QCD: tree/label_QCD
+        label_Hbb: tree/label_Hbb
+        label_Hcc: tree/label_Hcc
+        label_Hgg: tree/label_Hgg
+        label_H4q: tree/label_H4q
+        label_Hqql: tree/label_Hqql
+        label_Zqq: tree/label_Zqq
+        label_Wqq: tree/label_Wqq
+        label_Tbqq: tree/label_Tbqq
+        label_Tbl: tree/label_Tbl
+      outputs:
+        - label
+    - processor: get_part_pt
+      kwargs:
+        part_px: tree/part_px
+        part_py: tree/part_py
+      outputs:
+        - part_pt
+
+  outputs:
+    sequence:
+      # Raw features for augmentation + post-augmentation normalization
+      # Order: [pT, energy, deta, dphi]  (indices 0, 1, 2, 3)
+      - part_pt
+      - tree/part_energy
+      - tree/part_deta
+      - tree/part_dphi
+    class_:
+      # Jet-level quantities for computing relative features post-augmentation
+      # Order: [jet_pt, jet_energy]  (indices 0, 1)
+      - tree/jet_pt
+      - tree/jet_energy
+    aux:
+      - label

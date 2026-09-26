@@ -1,0 +1,142 @@
+# JetCLR baseline (vanilla JetCLR augmentations) on the shared RINO backbone,
+# pretrained on JetClass QCD jets (raw ROOT files, see configs/data-README.md).
+#
+# Run (from the repository root):
+#   accelerate launch --multi_gpu --num_processes=<n_gpus> \
+#       baselines/jetclr/JetCLR/scripts/jetclr_train.py \
+#       --config baselines/jetclr/configs/jetclr-rinomodel.yaml
+# Checkpoints are written to <repo root>/experiments/jetclr/jetclr-rinomodel/.
+
+name: "jetclr-rinomodel"
+experiment_dir: "PROJECT_ROOT/experiments/jetclr/JOBNAME"
+accelerate: true
+device: "cuda"
+
+models:
+  # Modern JetTransformerEncoder backbone (same arch as DINO / MPM-RINO /
+  # OmniJet-α) for apples-to-apples SSL baseline comparison.
+  backbone:
+    type: "JetTransformerEncoder"
+    params:
+      d_model: 256
+      nhead: 16
+      num_layers: 8
+      pooling: cls_token
+      norm: RMSNorm
+      layer_scale_init: 0.01
+      num_registers: 4
+      jet_dim: 4
+      mlp_ratio: 4
+      apply_final_norm: true
+      apply_embedding_norm: true
+  head:
+    type: "MLPHead"
+    params:
+      output_dim: 256
+      hidden_dims: [256]
+      activations: ["GELU"]
+      batch_norms: [false]
+      dropouts: [0.0]
+      weight_norm: false
+      l2_norm: false
+
+training:
+  num_epochs: 100
+  autograd_detect_anomaly: false
+  optimizer:
+    name: "AdamW"
+    params:
+      lr: 1.e-3
+  scheduler:
+    name: "SequentialLR"
+    params:
+      milestones: [20]
+      schedulers:
+        - name: "CosineScheduler"
+          params:
+            base_value: 1.e-5
+            final_value: 1.0
+            total_iters: 20
+        - name: "CosineScheduler"
+          params:
+            base_value: 1.0
+            final_value: 1.e-1
+            total_iters: 180
+  temperature: 0.10
+
+  dataloader:
+    train:
+      config: "PROJECT_ROOT/baselines/jetclr/configs/rino-kinematics-raw.yaml"
+      num_workers: 4
+      cached: true
+      preprocessed: false
+      kwargs:
+        cache_size: 100
+        batch_size: 3000
+    val:
+      config: "PROJECT_ROOT/baselines/jetclr/configs/rino-kinematics-raw.yaml"
+      num_workers: 4
+      cached: true
+      preprocessed: false
+      kwargs:
+        cache_size: 100
+        batch_size: 3000
+
+augmentation:
+  # Feature index mapping for raw (pT, energy, deta, dphi) input
+  feature_map:
+    pt: 0
+    energy: 1
+    eta: 2
+    phi: 3
+  # Post-augmentation normalization: produces 7 RINO-compatible features
+  post_normalize: "rino"
+  # Augmentations (applied on raw features before normalization)
+  rot: true
+  cf: true
+  ptd: true
+  ptst: 0.1
+  ptcm: 0.1
+  trs: true
+  trsw: 1.0
+
+linear_classifier_test:
+  n_epochs: 750
+  batch_size: 1000
+  learning_rate: 1.e-3
+  optimizer: "adam"
+
+inference:
+  load_epoch: "best"  # or specific epoch number or "final"
+  splits: ["test"]
+  acc_test_splits: ["test"]
+  output_dir: "outputs/jetclr"
+  mask: false
+  cmask: true
+  apply_translation: false
+  translation_width: 1.0
+
+  acc_tests:
+    knn:
+      k_list: [1, 5, 10, 20]
+      labels_to_include: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+      sample_size: 200000
+      n_experiments: 5
+    linear_probe:
+      max_epochs: 100
+      learning_rate: 1.e-3
+      batch_size: 2048
+      sample_size: -1
+      labels_to_include: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+      n_experiments: 5
+      patience: 15
+      val_fraction: 0.1
+
+  dataloader:
+    test:
+      config: "PROJECT_ROOT/baselines/jetclr/configs/rino-kinematics-raw.yaml"
+      num_workers: 4
+      cached: true
+      preprocessed: false
+      kwargs:
+        batch_size: 500

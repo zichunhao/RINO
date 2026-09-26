@@ -1,0 +1,28 @@
+checkpoint_per_epoch:
+  _target_: pytorch_lightning.callbacks.ModelCheckpoint
+  dirpath: ${paths.full_path}/checkpoints
+  filename: "{step}"
+  enable_version_counter: False
+  auto_insert_metric_name: False
+  every_n_train_steps: 5000
+  save_top_k: -1
+  monitor: null
+
+model_summary:
+  _target_: pytorch_lightning.callbacks.RichModelSummary
+  max_depth: 2
+
+lr_monitor:
+  _target_: pytorch_lightning.callbacks.LearningRateMonitor
+  logging_interval: step
+
+stderr_progress_bar:
+  _target_: src.callbacks.StderrProgressBar
+
+epoch_loss_printer:
+  _target_: src.callbacks.EpochLossPrinter
+
+# grad_monitor:
+#   _target_: mltools.mltools.lightning_utils.LogGradNorm
+#   logging_interval: 200
+#   depth: 3

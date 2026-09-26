@@ -1,0 +1,20 @@
+_target_: gabbro.models.rino_backbone.RINONextTokenPrediction
+
+decoder_kwargs:
+  vocab_size: 514        # 512 VQ codes + start + stop
+  d_model: 256
+  nhead: 16
+  num_layers: 8
+  norm: RMSNorm
+  activation: SwiGLU
+  layer_scale_init: 0.01
+  num_registers: 4
+  mlp_ratio: 4
+  apply_final_norm: true
+  apply_embedding_norm: true
+  max_seq_len: 256       # covers 128 particles + start/stop + registers
+
+vqvae_ckpt_path: null    # Override in experiment config
+
+lr: 1.e-3
+weight_decay: 0.01

@@ -1,0 +1,47 @@
+defaults:
+  - shared/stream@train_set
+  - shared/stream@val_set
+  - shared/stream@test_set
+
+_target_: src.datamodules.hdf_stream.StreamModule
+
+# The combined QCD files do not contain a csts_id column.
+# features lists what to load; csts_id is omitted. Also set use_id: false in the model.
+train_set:
+  path: ${paths.root_dir}/../../data/JetClass/mpm/train_100M_combined_QCD.h5
+  csts_dim: ${csts_dim}
+  features:
+    - [csts, f, [128]]
+    - [mask, bool, [128]]
+    - [labels, l, null]
+    - [jets, f, null]
+
+val_set:
+  path: ${paths.root_dir}/../../data/JetClass/mpm/val_5M_combined_QCD.h5
+  csts_dim: ${csts_dim}
+  features:
+    - [csts, f, [128]]
+    - [mask, bool, [128]]
+    - [labels, l, null]
+    - [jets, f, null]
+  # n_jets: 1000_000 # Really dont need 5M
+
+test_set:
+  path: ${paths.root_dir}/../../data/JetClass/mpm/test_20M_combined_QCD.h5
+  csts_dim: ${csts_dim}
+  features:
+    - [csts, f, [128]]
+    - [mask, bool, [128]]
+    - [labels, l, null]
+    - [jets, f, null]
+  # n_jets: 2000_000 # Really dont need 20M
+
+num_workers: 1 # Keep having issues with num_workers > 1 :(
+batch_size: 500
+pin_memory: True
+transforms:
+  - _target_: src.datamodules.preprocessing.preprocess
+    _partial_: true
+    fn:
+      _target_: joblib.load
+      filename: ${paths.root_dir}/resources/cst_quant.joblib

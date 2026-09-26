@@ -1,0 +1,303 @@
+# Path placeholders:
+# - PROJECT_ROOT: root directory of the project
+# - EPOCHNUM: epoch number
+# - JOBNAME: specified by name
+#
+# jetclr-3tier-recon: NT-Xent + MAE-style reconstruction with 3-tier multi-scale views.
+# Three resolution tiers: coarse [2,3,4], medium [6,8], fine [16,ALL].
+# Picks 2 of 3 tiers per batch → 2-view NT-Xent with guaranteed cross-scale gap.
+# Reconstruction replaces iBOT: MSE reconstruction of masked particle features.
+
+name: jetclr-3tier-recon
+seed: 42
+
+# Device configuration
+device: "cuda"
+accelerate: true
+use_bf16: true
+float32_matmul_precision: "high"
+
+# Parameters for the backbone model
+models:
+  backbone:
+    type: "JetTransformerEncoder"
+    params:
+      d_model: 256
+      nhead: 16
+      num_layers: 8
+      pooling: cls_token
+      norm: RMSNorm
+      layer_scale_init: 0.01
+      num_registers: 4
+      jet_dim: 4
+      mlp_ratio: 4
+      apply_final_norm: true
+      apply_embedding_norm: true
+  projection_head:
+    type: "DINOHead"
+    params:
+      output_dim: 2048
+      hidden_dims: [1024, 1024, 256]
+      activations: ["GELU", "GELU", "id"]
+      batch_norms: [false, false, false]
+      dropouts: [0.0, 0.0, 0.0]
+      l2_norm: true
+      weight_norm: true
+      rmlp: false
+  # Reconstruction decoder: d_model -> part_dim
+  # output_dim must match part_dim (number of particle features from the dataloader)
+  recon_head:
+    type: "MLPHead"
+    params:
+      output_dim: 7     # must match part_dim from dataloader config
+      hidden_dims: [256]
+      activations: ["GELU"]
+      batch_norms: [false]
+      dropouts: [0.0]
+      l2_norm: false
+      weight_norm: false
+
+# Loss parameters
+loss_params:
+  ntxent:
+    temperature: 0.1
+    weight: 1.0
+
+  recon:
+    weight: 1.0
+    mask_ratio: 0.25
+
+# Augmentation parameters
+# 3-tier multi-scale: coarse [2,3,4], medium [6,8], fine [16,ALL].
+# Each batch picks 2 of 3 tiers, one view per tier → 2-view NT-Xent with
+# guaranteed cross-scale gap.
+augmentation_params:
+  augmenter_kwargs:
+    need_part_p4: false
+    need_jet_p4: false
+  global:
+    - name: "multi_scale"
+      num: 2
+      components:
+        - type: "cluster"
+          args:
+            nprongs_choices: [[2, 3, 4], [6, 8], [16, "ALL"]]
+
+  local: []
+
+shuffle:
+  training: true
+  inference: false
+
+# Training parameters
+training:
+  dataloader:
+    train:
+      preprocessed: true
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/jetclass-clustered/kinematics.yaml"
+      num_workers: 6
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 3000
+        patterns:
+          - 'QCD.h5'
+        cache_size: 150
+        size_multiplier: 2.5
+        preload_workers: 10
+    val:
+      preprocessed: true
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/jetclass-clustered/kinematics.yaml"
+      num_workers: 6
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 4000
+        patterns:
+          - 'QCD.h5'
+        cache_size: 20
+        size_multiplier: 2.5
+        preload_workers: 10
+  num_epochs: 100
+  patience: 1000
+  grad_clip: 3.0
+  autograd_detect_anomaly: false
+  checkpoints_filename: "model_checkpoint_EPOCHNUM.pt"
+  checkpoints_dir: "PROJECT_ROOT/experiments/JOBNAME/checkpoints"
+  load_epoch:  # epoch to reload
+  auto_resume: true
+  optimizer:
+    name: "AdamW"
+    params:
+      lr: 3.e-3
+      betas: [0.9, 0.999]
+      eps: 1.e-6
+      weight_decay: 0.05
+    backbone_lr_decay: 0.9
+  reset_best_val_loss_epochs: [14]
+  scheduler:
+    name: "SequentialLR"
+    params:
+      milestones: [15]
+      schedulers:
+        - name: "CosineScheduler"
+          params:
+            base_value: 1.e-6
+            final_value: 1.0
+            total_iters: 15
+        - name: "CosineScheduler"
+          params:
+            base_value: 1.0
+            final_value: 1.e-2
+            total_iters: 85
+
+# Inference parameters
+inference:
+  auto_resume: true
+  rep:
+    penultimate_layer: false
+    cat_mean_pool: true
+  acc_tests:
+    knn:
+      cat_mean_pool: false
+      n_experiments: 10
+      sample_size: 200000
+      k_list: [20]
+      labels_to_include: [0, 8]
+    linear_probe:
+      cat_mean_pool: true
+      n_experiments: 5
+      sample_size: 200000
+      max_epochs: 100
+      patience: 20
+      labels_to_include: [0, 8]
+      batch_size: 2048
+      learning_rate: 1.e-3
+  dataloader:
+    train_jetclass:
+      preprocessed: false
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/jetclass-raw/kinematics.yaml"
+      num_workers: 6
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 1000
+        batch_size_atomic: 1000
+        patterns:
+          - '**/TTBar_*.root'
+          - '**/ZJetsToNuNu_*.root'
+        cache_size: 160
+        size_multiplier: 2.5
+        preload_workers: 6
+    val_jetclass:
+      preprocessed: false
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/jetclass-raw/kinematics.yaml"
+      num_workers: 6
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 1000
+        batch_size_atomic: 1000
+        patterns:
+          - '**/TTBar_*.root'
+          - '**/ZJetsToNuNu_*.root'
+        cache_size: 20
+        size_multiplier: 2.5
+        preload_workers: 6
+    test_jetclass:
+      preprocessed: false
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/jetclass-raw/kinematics.yaml"
+      num_workers: 6
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 1000
+        batch_size_atomic: 1000
+        patterns:
+          - '**/TTBar_*.root'
+          - '**/ZJetsToNuNu_*.root'
+        cache_size: 20
+        size_multiplier: 2.5
+        preload_workers: 6
+    train_jetnet:
+      preprocessed: true
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/jetnet/kinematics.yaml"
+      num_workers: 6
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 1000
+        patterns:
+          - 'gqt_train.h5'
+        cache_size: 60
+        size_multiplier: 2.5
+        preload_workers: 10
+    val_jetnet:
+      preprocessed: true
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/jetnet/kinematics.yaml"
+      num_workers: 6
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 2000
+        patterns:
+          - 'gqt_val.h5'
+        cache_size: 20
+        size_multiplier: 2.5
+        preload_workers: 10
+    test_jetnet:
+      preprocessed: true
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/jetnet/kinematics.yaml"
+      num_workers: 6
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 2000
+        patterns:
+          - 'gqt_test.h5'
+        cache_size: 20
+        size_multiplier: 2.5
+        preload_workers: 10
+    train_toptagging:
+      preprocessed: true
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/toptagging/kinematics.yaml"
+      num_workers: 6
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 1000
+        patterns:
+          - 'train.h5'
+        cache_size: 60
+        size_multiplier: 2.5
+        preload_workers: 10
+    val_toptagging:
+      preprocessed: true
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/toptagging/kinematics.yaml"
+      num_workers: 6
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 2000
+        patterns:
+          - 'validation.h5'
+        cache_size: 20
+        size_multiplier: 2.5
+        preload_workers: 10
+    test_toptagging:
+      preprocessed: true
+      cached: true
+      config: "PROJECT_ROOT/configs/dataloaders/toptagging/kinematics.yaml"
+      num_workers: 6
+      prefetch_factor: 8
+      kwargs:
+        batch_size: 2000
+        patterns:
+          - 'validation.h5'
+        cache_size: 20
+        size_multiplier: 2.5
+        preload_workers: 10
+  load_epoch: [best, 99]
+  splits: ["test_jetclass", "test_jetnet", "test_toptagging"]
+  output_filename: "output_SPLIT_EPOCHNUM.pt"
+  output_dir: "PROJECT_ROOT/experiments/JOBNAME/inference"

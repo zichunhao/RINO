@@ -1,0 +1,34 @@
+# @package _global_
+
+defaults:
+  - hydra: default.yaml
+  - paths: default.yaml
+  - experiment: train_classifier
+  - _self_
+
+project_name: mpm
+network_name: mpm-finetune
+
+# Binary classification: QCD (label=0) vs TTbar hadronic (label=8)
+n_jets: 1000_000
+csts_dim: 7
+
+datamodule:
+  batch_size: 500
+  train_set:
+    path: ${paths.root_dir}/../../data/JetClass/mpm/train_combined_QCDTTbar.h5
+    n_jets: ${n_jets}
+    csts_dim: ${csts_dim}
+  val_set:
+    path: ${paths.root_dir}/../../data/JetClass/mpm/val_combined_QCDTTbar.h5
+    n_jets: ${min:1000_000, ${n_jets}}
+    csts_dim: ${csts_dim}
+  test_set:
+    path: ${paths.root_dir}/../../data/JetClass/mpm/test_20M_combined_QCDTTbar.h5
+    n_jets: 2000_000
+    csts_dim: ${csts_dim}
+
+# Override the backbone path to the trained MPM backbone
+model:
+  backbone_path: ${paths.full_path}/backbone.pkl
+  # n_classes is inferred from the data (2 for binary QCD vs TTbar)

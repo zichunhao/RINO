@@ -1,0 +1,36 @@
+# @package _global_
+
+defaults:
+  - override /datamodule: jetclass_cwola.yaml
+  - override /model: classifier.yaml
+  - override /callbacks: cwola.yaml
+
+# Change target to the CWoLa model
+model:
+  _target_: src.models.classifier.CWoLaClassifier
+  scheduler: # Faster warmup
+    warmup_steps: 5000
+  optimizer:
+    lr: 1.0e-4
+
+# Manually stop at 10 epochs
+trainer:
+  max_epochs: 10
+  check_val_every_n_epoch: 1
+  max_steps: -1 # Dont make this null!
+
+# Key parameters for fine-tuning
+n_jets: 1000 # This is for the num_signal but we will use the same name
+
+# Make sure to load only the number of signal jets
+datamodule:
+  train_set:
+    num_signal: ${n_jets}
+  val_set:
+    num_signal: ${n_jets}
+  test_set:
+    num_signal: ${n_jets}
+
+# Bookkeeping
+project_name: jetssl_finetune_paper
+network_name: cwola_${n_jets}

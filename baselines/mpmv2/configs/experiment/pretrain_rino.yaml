@@ -1,0 +1,52 @@
+# @package _global_
+#
+# MPMv2 pretraining with JetTransformerEncoder backbone and RINO kinematics.
+# Uses the same backbone architecture and input features as RINO (DINO+iBOT).
+# Masked-constituent objectives: K-means classification, L1 regression and a
+# conditional normalising flow, plus a detached linear probe for monitoring.
+#
+# Prerequisites:
+#   1. Generate RINO HDF5 files with:
+#        python scripts/make_jetclass.py \
+#          --source_path PROJECT_ROOT/data/JetClass/raw/ \
+#          --dest_path PROJECT_ROOT/data/JetClass/mpm-rino/
+#      Then combine QCD files as usual.
+#
+# Run:
+#   python scripts/train.py experiment=pretrain_rino
+# The L1 regression task is part of this experiment, so no +model/tasks=reg
+# override is needed.
+
+defaults:
+  - /model/tasks/kmeans
+  - /model/tasks/flow
+  - /model/tasks/probe
+  - /model/tasks/reg
+  - override /datamodule: jetclass_rino_masked
+  - override /model: mpm
+  - override /model/encoder_config: jet_transformer
+
+# Reported setup: 2 GPUs x 2000 jets per GPU (4000 jets per step), bf16 mixed
+# precision, validation once per epoch.
+trainer:
+  devices: 2
+  precision: bf16-mixed
+  max_epochs: 100
+  val_check_interval: null
+
+datamodule:
+  batch_size: 2000 # Per GPU
+
+csts_dim: 7
+use_weights: False
+model:
+  use_id: False
+  tasks:
+    flow:
+      # The RINO kinematics are continuous: no dequantisation noise
+      noise_std: 0.0
+mask_fraction: 0.4
+
+project_name: mpmv2-rino
+network_name: mpmv2-rino
+full_resume: false

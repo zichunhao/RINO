@@ -1,0 +1,21 @@
+# Need to be a dictionary itself to run with python train.py +model/tasks=id
+id:
+  _target_: src.models.mpm_tasks.IDTask
+  _partial_: True
+
+  weight: 0.3 # Don't dominate the loss
+  detach: False
+  apply_every: 1
+  # Never set id_conditional: True else we give the targets to the model\
+
+  use_weights: ${use_weights}
+  class_weights: [
+    0.02112238,
+    0.03667253,
+    0.08135084,
+    0.03646385,
+    1.6282104,
+    1.6121898,
+    2.318756,
+    2.2652342,
+  ]

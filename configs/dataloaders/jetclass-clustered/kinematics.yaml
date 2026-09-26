@@ -1,0 +1,303 @@
+dataloader:
+  paths:
+    # Combined (single HDF5 per split) via jetclass-combine-kt. One open
+    # per epoch instead of 100 per-shard opens — friendlier to CephFS.
+    train: PROJECT_ROOT/data/JetClass/clustered/train/
+    val:   PROJECT_ROOT/data/JetClass/clustered/val/
+    test:  PROJECT_ROOT/data/JetClass/clustered/test/
+
+  patterns:
+  - '*.h5'
+
+  dtype: float32
+  batch_size: 256
+  max_seq_length: 90  # max number of particles in JetClass is 183
+  seq_pad_strategy: fixed
+  drop_last: 0
+
+  transformations:
+    # aux
+    - processor: jetclass_labeler
+      kwargs:
+        label_QCD: label_QCD
+        label_Hbb: label_Hbb
+        label_Hcc: label_Hcc
+        label_Hgg: label_Hgg
+        label_H4q: label_H4q
+        label_Hqql: label_Hqql
+        label_Zqq: label_Zqq
+        label_Wqq: label_Wqq
+        label_Tbqq: label_Tbqq
+        label_Tbl: label_Tbl
+      outputs:
+        - label
+    # Jets
+    - processor: get_jet_kinematics
+      args:
+        - jet_nparticles
+        - jet_energy
+        - jet_pt
+        - jet_eta
+        - jet_phi
+      outputs:
+        - norm_jet_nparticles
+        - norm_log_jet_energy
+        - norm_log_jet_pt
+        - norm_jet_eta
+        - norm_jet_phi
+    # Particles
+    - processor: get_rino_kinematics
+      kwargs:
+        part_energy: part_energy
+        part_px: part_px
+        part_py: part_py
+        part_pz: part_pz
+        part_deta: part_deta
+        part_dphi: part_dphi
+        jet_energy: jet_energy
+        jet_pt: jet_pt
+      outputs:
+        - norm_log_part_pt
+        - norm_log_part_energy
+        - norm_log_rel_part_pt
+        - norm_log_rel_part_energy
+        - norm_part_delta_R
+        - norm_part_deta
+        - norm_part_dphi
+
+    # Subjet1 features
+    - processor: get_rino_kinematics
+      kwargs:
+        part_energy: subjet1_energy
+        part_px: subjet1_px
+        part_py: subjet1_py
+        part_pz: subjet1_pz
+        part_deta: subjet1_deta
+        part_dphi: subjet1_dphi
+        jet_energy: jet_energy
+        jet_pt: jet_pt
+      outputs:
+        - norm_log_subjet1_pt
+        - norm_log_subjet1_energy
+        - norm_log_rel_subjet1_pt
+        - norm_log_rel_subjet1_energy
+        - norm_subjet1_delta_R
+        - norm_subjet1_deta
+        - norm_subjet1_dphi
+
+    # Subjet2 features
+    - processor: get_rino_kinematics
+      kwargs:
+        part_energy: subjet2_energy
+        part_px: subjet2_px
+        part_py: subjet2_py
+        part_pz: subjet2_pz
+        part_deta: subjet2_deta
+        part_dphi: subjet2_dphi
+        jet_energy: jet_energy
+        jet_pt: jet_pt
+      outputs:
+        - norm_log_subjet2_pt
+        - norm_log_subjet2_energy
+        - norm_log_rel_subjet2_pt
+        - norm_log_rel_subjet2_energy
+        - norm_subjet2_delta_R
+        - norm_subjet2_deta
+        - norm_subjet2_dphi
+
+    # Subjet3 features
+    - processor: get_rino_kinematics
+      kwargs:
+        part_energy: subjet3_energy
+        part_px: subjet3_px
+        part_py: subjet3_py
+        part_pz: subjet3_pz
+        part_deta: subjet3_deta
+        part_dphi: subjet3_dphi
+        jet_energy: jet_energy
+        jet_pt: jet_pt
+      outputs:
+        - norm_log_subjet3_pt
+        - norm_log_subjet3_energy
+        - norm_log_rel_subjet3_pt
+        - norm_log_rel_subjet3_energy
+        - norm_subjet3_delta_R
+        - norm_subjet3_deta
+        - norm_subjet3_dphi
+
+    # Subjet4 features
+    - processor: get_rino_kinematics
+      kwargs:
+        part_energy: subjet4_energy
+        part_px: subjet4_px
+        part_py: subjet4_py
+        part_pz: subjet4_pz
+        part_deta: subjet4_deta
+        part_dphi: subjet4_dphi
+        jet_energy: jet_energy
+        jet_pt: jet_pt
+      outputs:
+        - norm_log_subjet4_pt
+        - norm_log_subjet4_energy
+        - norm_log_rel_subjet4_pt
+        - norm_log_rel_subjet4_energy
+        - norm_subjet4_delta_R
+        - norm_subjet4_deta
+        - norm_subjet4_dphi
+
+    # Subjet6 features
+    - processor: get_rino_kinematics
+      kwargs:
+        part_energy: subjet6_energy
+        part_px: subjet6_px
+        part_py: subjet6_py
+        part_pz: subjet6_pz
+        part_deta: subjet6_deta
+        part_dphi: subjet6_dphi
+        jet_energy: jet_energy
+        jet_pt: jet_pt
+      outputs:
+        - norm_log_subjet6_pt
+        - norm_log_subjet6_energy
+        - norm_log_rel_subjet6_pt
+        - norm_log_rel_subjet6_energy
+        - norm_subjet6_delta_R
+        - norm_subjet6_deta
+        - norm_subjet6_dphi
+
+    # Subjet8 features
+    - processor: get_rino_kinematics
+      kwargs:
+        part_energy: subjet8_energy
+        part_px: subjet8_px
+        part_py: subjet8_py
+        part_pz: subjet8_pz
+        part_deta: subjet8_deta
+        part_dphi: subjet8_dphi
+        jet_energy: jet_energy
+        jet_pt: jet_pt
+      outputs:
+        - norm_log_subjet8_pt
+        - norm_log_subjet8_energy
+        - norm_log_rel_subjet8_pt
+        - norm_log_rel_subjet8_energy
+        - norm_subjet8_delta_R
+        - norm_subjet8_deta
+        - norm_subjet8_dphi
+
+    # Subjet16 features
+    - processor: get_rino_kinematics
+      kwargs:
+        part_energy: subjet16_energy
+        part_px: subjet16_px
+        part_py: subjet16_py
+        part_pz: subjet16_pz
+        part_deta: subjet16_deta
+        part_dphi: subjet16_dphi
+        jet_energy: jet_energy
+        jet_pt: jet_pt
+      outputs:
+        - norm_log_subjet16_pt
+        - norm_log_subjet16_energy
+        - norm_log_rel_subjet16_pt
+        - norm_log_rel_subjet16_energy
+        - norm_subjet16_delta_R
+        - norm_subjet16_deta
+        - norm_subjet16_dphi
+
+  outputs:
+    sequence_mask: part_is_real
+    sequence:
+      - norm_log_part_pt
+      - norm_log_part_energy
+      - norm_log_rel_part_pt
+      - norm_log_rel_part_energy
+      - norm_part_delta_R
+      - norm_part_deta
+      - norm_part_dphi
+    class_:
+      # - norm_jet_nparticles
+      - norm_log_jet_energy
+      - norm_log_jet_pt
+      - norm_jet_eta
+      - norm_jet_phi
+    views:
+      subjet1:
+        mask: subjet1_is_real
+        seq_len: 1
+        features:
+          - norm_log_subjet1_pt
+          - norm_log_subjet1_energy
+          - norm_log_rel_subjet1_pt
+          - norm_log_rel_subjet1_energy
+          - norm_subjet1_delta_R
+          - norm_subjet1_deta
+          - norm_subjet1_dphi
+      subjet2:
+        mask: subjet2_is_real
+        seq_len: 2
+        features:
+          - norm_log_subjet2_pt
+          - norm_log_subjet2_energy
+          - norm_log_rel_subjet2_pt
+          - norm_log_rel_subjet2_energy
+          - norm_subjet2_delta_R
+          - norm_subjet2_deta
+          - norm_subjet2_dphi
+      subjet3:
+        mask: subjet3_is_real
+        seq_len: 3
+        features:
+          - norm_log_subjet3_pt
+          - norm_log_subjet3_energy
+          - norm_log_rel_subjet3_pt
+          - norm_log_rel_subjet3_energy
+          - norm_subjet3_delta_R
+          - norm_subjet3_deta
+          - norm_subjet3_dphi
+      subjet4:
+        mask: subjet4_is_real
+        seq_len: 4
+        features:
+          - norm_log_subjet4_pt
+          - norm_log_subjet4_energy
+          - norm_log_rel_subjet4_pt
+          - norm_log_rel_subjet4_energy
+          - norm_subjet4_delta_R
+          - norm_subjet4_deta
+          - norm_subjet4_dphi
+      subjet6:
+        mask: subjet6_is_real
+        seq_len: 6
+        features:
+          - norm_log_subjet6_pt
+          - norm_log_subjet6_energy
+          - norm_log_rel_subjet6_pt
+          - norm_log_rel_subjet6_energy
+          - norm_subjet6_delta_R
+          - norm_subjet6_deta
+          - norm_subjet6_dphi
+      subjet8:
+        mask: subjet8_is_real
+        seq_len: 8
+        features:
+          - norm_log_subjet8_pt
+          - norm_log_subjet8_energy
+          - norm_log_rel_subjet8_pt
+          - norm_log_rel_subjet8_energy
+          - norm_subjet8_delta_R
+          - norm_subjet8_deta
+          - norm_subjet8_dphi
+      subjet16:
+        mask: subjet16_is_real
+        seq_len: 16
+        features:
+          - norm_log_subjet16_pt
+          - norm_log_subjet16_energy
+          - norm_log_rel_subjet16_pt
+          - norm_log_rel_subjet16_energy
+          - norm_subjet16_delta_R
+          - norm_subjet16_deta
+          - norm_subjet16_dphi
+    aux:
+      - label

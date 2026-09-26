@@ -1,0 +1,47 @@
+# @package _global_
+#
+# TODO (RINO consistency): Current HDF5 data uses [pt, deta, dphi, d0val, d0err,
+# dzval, dzerr] as the 7 features. For RINO consistency, these should be the
+# 7 RINO kinematics [norm_log_pt, norm_log_energy, norm_log_rel_pt,
+# norm_log_rel_energy, norm_delta_R, norm_deta, norm_dphi].
+# This requires regenerating the HDF5 files with baselines/mpmv2/scripts/make_jetclass.py
+# (modified for RINO features) or switching to raw ROOT file loading.
+# The JTE backbone config (jet_transformer.yaml) is already updated.
+
+defaults:
+  # Uncomment which tasks you want to run
+  ######################
+  # - /model/tasks/reg
+  # - /model/tasks/kmeans
+  # - /model/tasks/vae
+  # - /model/tasks/diff
+  # - /model/tasks/flow
+  # - /model/tasks/id # Compliments the other tasks
+  # - /model/tasks/probe # Keep this on for benchmarking
+  ######################
+  - /model/tasks/kmeans   # Strong, fast, no extra training needed
+  - /model/tasks/flow     # Optional: add for extra richness
+  # - /model/tasks/id    # Requires csts_id; disabled for combined QCD files
+  - /model/tasks/probe    # Keep for benchmarking
+  - override /datamodule: jetclass_masked
+  - override /model: mpm
+
+# For long training
+trainer:
+  # max_steps: 100_000
+  # val_check_interval: 2500
+  max_steps: 500_000  # 100 epochs (RINO-consistent)
+  max_epochs: 100
+  val_check_interval: 5000
+  # reload_dataloaders_every_n_epochs: 1 # Needed for resuming mid-epoch
+
+csts_dim: 7
+use_weights: False
+model:
+  use_id: False  # combined QCD files do not contain csts_id
+mask_fraction: 0.4 # Determined to be the best value for the dataset
+
+# Model modifications
+project_name: mpm
+network_name: mpm
+full_resume: false

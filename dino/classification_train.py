@@ -832,7 +832,7 @@ def train(config: dict[str, Any], use_wandb: bool = False) -> None:
                 LOGGER.info(f"Resuming W&B run {wandb_id}")
 
             wandb_run = wandb.init(
-                project="PARCEL-Classification",
+                project="RINO-Classification",
                 name=config.get("name", "classification"),
                 config=config,
                 id=wandb_id,

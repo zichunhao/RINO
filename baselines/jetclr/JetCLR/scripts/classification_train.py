@@ -2,7 +2,7 @@
 
 Thin wrapper around dino/classification_train.py. All training logic lives there
 because JetCLR and DINO share the same backbone (JetTransformerEncoder), the same
-PARCEL data pipeline, and the same utils package.
+RINO data pipeline, and the same utils package.
 """
 
 import sys
@@ -10,10 +10,10 @@ import argparse
 import yaml
 from pathlib import Path
 
-# Locate the PARCEL project root so we can import from `utils` and `dino`.
+# Locate the repository root so we can import from `utils` and `dino`.
 _script_dir = Path(__file__).resolve().parent
 _baseline_dir = _script_dir.parent.parent.parent  # …/baselines/
-_project_dir = _baseline_dir.parent  # PARCEL root
+_project_dir = _baseline_dir.parent  # repository root
 sys.path.insert(0, str(_project_dir))
 sys.path.insert(0, str(_project_dir / "dino"))
 

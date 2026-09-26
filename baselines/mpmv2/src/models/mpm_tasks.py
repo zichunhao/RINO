@@ -223,11 +223,10 @@ class KmeansTask(TaskBase):
             kmeans_path = kmeans_path.replace("_7.pkl", "_3.pkl")
         if not Path(kmeans_path).is_file():
             raise FileNotFoundError(
-                f"K-means codebook not found: {kmeans_path}. Fit one with "
-                "scripts/fit_kmeans_rino.py or set model.tasks.kmeans.kmeans_path."
+                f"K-means codebook not found: {kmeans_path}. "
+                "Set model.tasks.kmeans.kmeans_path."
             )
-        # The codebook is a pickled module (torchpq KMeans or
-        # src.models.kmeans.KMeansCodebook), so it needs a full unpickle
+        # The codebook is a pickled torchpq KMeans module, so it needs a full unpickle
         self.kmeans = T.load(
             kmeans_path, map_location=parent.device, weights_only=False
         )

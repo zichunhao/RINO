@@ -7,7 +7,7 @@ regularization, the MLP-vs-linear test and the design ablations. The
 TopTagging→JetClass scale-factor proxy is computed by
 `studies/physics/scale_factor_proxy.py`.
 
-All commands run from the repository root with the `parcel` environment. The
+All commands run from the repository root with the `rino` environment. The
 scripts only read inference outputs; training and inference use the standard
 entry points:
 
@@ -238,21 +238,35 @@ manifest entries with the row (e.g. `variant: ibot-only`) and tabulate with
 table) or `--gain-ref first` (per-axis blocks, selected with `--where`) adds the
 relative change of the OOD accuracy.
 
-| Table row | Pretraining config |
-|---|---|
-| DINO only, mixed views, no PE | `configs/dino/dino-mixed-pbin.yaml` with the backbone `pos_encoding_kwargs` removed |
-| + iBOT (mixed views, no PE) | `configs/dino/ibot-mixed-nope.yaml` |
-| Mixed views, pT-rank PE | `configs/dino/ibot-mixed-ptrank.yaml` |
-| Mixed views, polar-binned PE (mixed-scale view assignment) | `configs/dino/ibot-mixed-pbin.yaml` |
-| kT views, pT-rank PE | `configs/dino/ibot-g6l2-ptrank.yaml` |
-| kT views, polar-binned PE (RINO before teacher tuning) | `configs/dino/ibot-g6l2-pbin.yaml` |
-| Swapped roles: teacher {2,3,4}, student {6,8,16,uncl.} | `configs/dino/ibot-g2l6-pbin.yaml` |
-| C/A clustering | `configs/dino/ibot-g6l2-pbin.yaml` on views clustered with `--algorithm cambridge` |
-| Anti-kT clustering | `configs/dino/ibot-g6l2-pbin.yaml` on views clustered with `--algorithm antikt` |
-| iBOT only | `configs/dino/ibotonly-g6l2-pbin.yaml` |
-| + teacher HP tuning (RINO, production) | `configs/dino/rino.yaml` |
+The variants start from `configs/dino/rino.yaml` with the teacher schedule
+before tuning: `teacher_temp: 0.07` with `temp_warmup: {start_value: 0.04,
+start_epoch: 0, end_epoch: 19, warmup_scheduler: cosine}` in both
+`loss_params.dino` and `loss_params.ibot`, and
+`training.teacher_momentum.final_value: 0.999`. Each row then changes:
 
-The C/A and anti-kT variants differ from the kT run only in the clustered
-training data: rerun `dino/preprocess/jetclass/cluster.py` with the given
-`--algorithm` and point the config's `training.dataloader` at a dataloader
+| Table row | Change |
+|---|---|
+| DINO only, mixed views, no PE | mixed views; no PE; no iBOT (remove `loss_params.ibot` and `models.ibot_head`) |
+| + iBOT (mixed views, no PE) | mixed views; no PE |
+| Mixed views, pT-rank PE | mixed views; pT-rank PE |
+| Mixed views, polar-binned PE (mixed-scale view assignment) | mixed views |
+| kT views, pT-rank PE | pT-rank PE |
+| kT views, polar-binned PE (RINO before teacher tuning) | none |
+| Swapped roles: teacher {2,3,4}, student {6,8,16,uncl.} | `nprongs_choices` of `augmentation_params.global` set to `[2, 3, 4]` and of `augmentation_params.local` to `[6, 8, 16, ALL]` |
+| iBOT only | `loss_params.dino.weight: 0.0`, `loss_params.koleo.weight: 0.0` and backbone `pooling: mean` |
+| + teacher HP tuning (RINO, production) | none: `configs/dino/rino.yaml` as shipped |
+
+- Mixed views: `nprongs_choices` of `augmentation_params.global` set to
+  `[2, 4, 8, 16]` and of `augmentation_params.local` to `[3, 6, ALL]`.
+- No PE: remove `pos_encoding_kwargs` from `models.backbone.params`.
+- pT-rank PE: remove `pos_encoding_kwargs` from `models.backbone.params` and add
+  `models.ibot_pos_embedding.params` with `mode: rank` and
+  `kwargs: {max_seq_len: 90, pt_sorted: true}`.
+
+Finetune each variant by adding a `MODELS` entry for its checkpoint to
+`configs/gen_le_configs.py`.
+
+The C/A and anti-kT results use the same training objective on views
+reclustered with `dino/preprocess/jetclass/cluster.py --algorithm cambridge` or
+`--algorithm antikt`; point the config's `training.dataloader` at a dataloader
 config for those files.

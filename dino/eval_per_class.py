@@ -6,13 +6,13 @@ across runs, and produces ensemble predictions.
 
 Usage:
     python dino/eval_per_class.py \
-        --exp-dir experiments/finetune-jetnet-final/finetune-jn-dino-g6-l2-pbin \
+        --exp-dir experiments/finetune-jetnet-final/finetune-jn-rino \
         --num-runs 10
 
     # Or batch multiple models:
     python dino/eval_per_class.py \
-        --exp-dirs experiments/finetune-jetnet-final/finetune-jn-dino-g6-l2-pbin \
-                    experiments/finetune-jetnet-final/finetune-jn-rino
+        --exp-dirs experiments/finetune-jetnet-final/finetune-jn-rino \
+                    experiments/finetune-jetnet-final/finetune-jn-sup
 """
 
 import argparse

@@ -28,6 +28,12 @@ import torch
 import torch.nn.functional as F
 import yaml
 
+# The cuDNN SDPA backend fails with "cuDNN Frontend error: No execution plans support
+# the graph" on several GPU/driver combinations; the release training and inference
+# entry points disable it the same way (see dino/dino_train.py).
+if hasattr(torch.backends.cuda, "enable_cudnn_sdp"):
+    torch.backends.cuda.enable_cudnn_sdp(False)
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DINO_DIR = PROJECT_ROOT / "dino"
 if str(DINO_DIR) not in sys.path:

@@ -1,4 +1,4 @@
-"""PARCEL-compatible autoregressive backbone for OmniJet-alpha.
+"""RINO-compatible autoregressive backbone for OmniJet-alpha.
 
 Uses JetTransformerDecoder (causal attention) with the same architecture
 parameters as RINO's JetTransformerEncoder for apples-to-apples comparison.
@@ -34,7 +34,7 @@ class NextTokenPredictionHead(nn.Module):
         return self.proj(x)
 
 
-class PARCELNextTokenPrediction(L.LightningModule):
+class RINONextTokenPrediction(L.LightningModule):
     """Autoregressive next-token prediction using JetTransformerDecoder.
 
     Two-stage pipeline:

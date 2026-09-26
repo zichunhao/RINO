@@ -5,7 +5,7 @@ domain shift of finetuned and pretrained representations, and the cosine
 similarity of representations across kT clustering scales (backbone and
 projection head, standard and swapped teacher–student roles).
 
-All commands run from the repository root with the `parcel` environment. The
+All commands run from the repository root with the `rino` environment. The
 scripts reuse the release code in `dino/` (configs, dataloaders, models,
 `dino/domain_shift_metrics.py`); figures and tables are drawn only from the
 JSON files the compute scripts write.
@@ -175,12 +175,13 @@ python studies/representation/scale_structure/plot_cosine_matrices.py \
 ### Swapped teacher–student roles
 
 Pretrain the swapped-role variant (teacher {2, 3, 4}; student additionally
-{6, 8, 16, uncl.}) with `configs/dino/ibot-g2l6-pbin.yaml`, compute its matrix,
-and plot it next to a standard-assignment run (teacher {6, 8, 16});
-`configs/dino/ibot-g6l2-pbin.yaml` is the same recipe with the standard roles.
+{6, 8, 16, uncl.}) and the standard-assignment variant (teacher {6, 8, 16}) of
+the pre-tuning recipe (`../evaluation/README.md`, "Ablations"), saved as
+`configs/dino/standard.yaml` and `configs/dino/swapped.yaml` with distinct
+`name`s. Compute both matrices and plot them side by side.
 
 ```bash
-for cfg in ibot-g6l2-pbin ibot-g2l6-pbin; do
+for cfg in standard swapped; do
   python studies/representation/scale_structure/compute_scale_cosines.py \
       --model-type dino --model-config configs/dino/$cfg.yaml \
       --data-config configs/dino/rino.yaml \
@@ -188,10 +189,10 @@ for cfg in ibot-g6l2-pbin ibot-g2l6-pbin; do
 done
 
 python studies/representation/scale_structure/plot_cosine_matrices.py \
-    --panel stats=experiments/studies/scale_structure/ibot-g6l2-pbin/cosine_similarity_stats.json \
+    --panel stats=experiments/studies/scale_structure/standard/cosine_similarity_stats.json \
             teacher=6,8,16 title='Standard: teacher $\{6,8,16\}$' \
             subtitle='student $\{2,3,4,\mathrm{uncl.}\}$' \
-    --panel stats=experiments/studies/scale_structure/ibot-g2l6-pbin/cosine_similarity_stats.json \
+    --panel stats=experiments/studies/scale_structure/swapped/cosine_similarity_stats.json \
             teacher=2,3,4 title='Swapped: teacher $\{2,3,4\}$' \
             subtitle='student $\{6,8,16,\mathrm{uncl.}\}$' \
     --ncols 2 --colorbar right --panel-size 4.5 --fontsize 7 \

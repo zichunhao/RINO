@@ -14,14 +14,14 @@ Metrics:
 Usage:
     # Single experiment, single split
     python dino/diagnostics/embedding_diagnostics.py \
-        --experiment-dir experiments/dino-g6-l2-pbin \
+        --experiment-dir experiments/rino \
         --splits test_jetclass test_jetnet \
         --epoch 199
 
     # Compare multiple experiments
     python dino/diagnostics/embedding_diagnostics.py \
-        --experiment-dir experiments/dino-g6-l2-pbin \
-                        experiments/dino-ibot-g6l2-pbin \
+        --experiment-dir experiments/rino \
+                        experiments/jetclr-3tier-recon \
         --splits test_jetclass test_jetnet \
         --epoch 199
 
@@ -34,13 +34,13 @@ Usage:
 
     # CKA between two splits (cross-domain similarity)
     python dino/diagnostics/embedding_diagnostics.py \
-        --experiment-dir experiments/dino-g6-l2-pbin \
+        --experiment-dir experiments/rino \
         --cka-splits test_jetnet test_jetclass \
         --epoch 199
 
     # Save to JSON
     python dino/diagnostics/embedding_diagnostics.py \
-        --experiment-dir experiments/dino-g6-l2-pbin \
+        --experiment-dir experiments/rino \
         --splits test_jetclass test_jetnet \
         --epoch 199 -o diagnostics.json
 """

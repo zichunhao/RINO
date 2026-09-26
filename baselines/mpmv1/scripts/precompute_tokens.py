@@ -28,11 +28,11 @@ import h5py
 import numpy as np
 import torch
 
-# Add PARCEL root + baselines to sys.path so we can import SharedVQVAELightning.
+# Add the repository root + baselines to sys.path so we can import SharedVQVAELightning.
 _script_dir = Path(__file__).resolve().parent          # .../baselines/mpmv1/scripts/
 _mpmv1_dir = _script_dir.parent                         # .../baselines/mpmv1/
 _baselines_dir = _mpmv1_dir.parent                      # .../baselines/
-_project_dir = _baselines_dir.parent                    # PARCEL root
+_project_dir = _baselines_dir.parent                    # repository root
 sys.path.insert(0, str(_project_dir))
 
 

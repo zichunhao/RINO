@@ -4,7 +4,7 @@ Loads model via baselines model_factory (NOT dino's get_models_finetune).
 Implements the inference loop directly — no monkey-patching of dino_inference.
 
 Usage:
-    cd $PARCEL_ROOT
+    cd $RINO_ROOT
     python baselines/scripts/classification_inference.py \
         -c baselines/configs/finetune/jetclr-rinomodel-mlp-vanilla.yaml \
         --run-index 0 --include-head-output

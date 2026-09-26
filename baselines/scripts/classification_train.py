@@ -4,7 +4,7 @@ Uses its own model_factory.py for checkpoint loading (no DINO teacher/student).
 Shares model classes and dataloaders from dino/ (generic infrastructure).
 
 Usage:
-    cd $PARCEL_ROOT
+    cd $RINO_ROOT
     python baselines/scripts/classification_train.py \
         -c baselines/configs/finetune/jetclr-modern-linear-unfreeze.yaml
 """

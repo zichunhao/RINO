@@ -23,7 +23,7 @@ the `ZJetsToNuNu_*.root` files. By default, outputs go to
 and access to the release modules under `dino/`. Every script documents all of
 its options under `--help`.
 
-Requirements: the `parcel` environment plus `fastjet`, which is needed by
+Requirements: the `rino` environment plus `fastjet`, which is needed by
 `kt_scales.py` and also by `dino/preprocess/jetclass/cluster.py`
 (`pip install fastjet`).
 

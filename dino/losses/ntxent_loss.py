@@ -2,7 +2,7 @@
 NT-Xent (Normalized Temperature-scaled Cross-Entropy) contrastive loss.
 
 Based on the SimCLR / JetCLR formulation. Wrapped with ``WarmupSchedule``
-for consistent weight scheduling with other PARCEL losses.
+for consistent weight scheduling with other RINO losses.
 
 Config example
 --------------

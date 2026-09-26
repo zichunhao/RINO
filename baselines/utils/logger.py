@@ -120,4 +120,4 @@ def formatter_message(message: str, use_color: bool = True) -> str:
         message = message.replace("$RESET", "").replace("$BOLD", "")
     return message
 
-LOGGER = setup_logger(name="PARCEL", log_level="INFO")
+LOGGER = setup_logger(name="RINO", log_level="INFO")

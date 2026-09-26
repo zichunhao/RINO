@@ -146,7 +146,7 @@ def main():
     ]
 
     logger = pl.loggers.WandbLogger(
-        project="parcel-baselines",
+        project="rino-baselines",
         name=config.get("name", "vqvae"),
         save_dir=str(experiment_dir),
     ) if config.get("use_wandb", True) else True

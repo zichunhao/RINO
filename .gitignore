@@ -1,12 +1,28 @@
 experiments/
-**/*exp/
 dev/
-*.pt
-*.pth
-*.ipynb
-prp/
+dev-cosmos/
 *.code-workspace
-
+**/.triton/
+.claude/
+claude-notes/
+CLAUDE.md
+**/nrp*/
+vicreg/
+configs-*/
+dino-material/
+figures/
+inspect/
+proposal/
+tests/
+tex/
+training_logs/
+*.ipynb
+test_run.sh
+simple_probe.py
+simple-probe.yaml
+lorentz/
+*backup*
+*.h5
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

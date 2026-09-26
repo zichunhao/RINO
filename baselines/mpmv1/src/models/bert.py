@@ -537,7 +537,7 @@ class IterableBert(Bert):
             **kwargs,
         )
         self.model = vq_model
-        self._parcel_vqvae = is_shared_vqvae
+        self._shared_vqvae = is_shared_vqvae
 
     def preprocess_inputs(self, sample):
         with T.no_grad():
@@ -573,9 +573,9 @@ class IterableBert(Bert):
                 assert not self.quantize_inpt, (
                     "quantize_inpt=True is not supported with precomputed tokens."
                 )
-            elif self._parcel_vqvae:
+            elif self._shared_vqvae:
                 self.model.eval()
-                # PARCEL's SharedVQVAE returns (B, N) long with -1 for padded
+                # RINO's SharedVQVAE returns (B, N) long with -1 for padded
                 # positions; map them to 0 so every slot holds a valid class
                 # index. Padded slots are never masked, so they carry no loss.
                 code_labels = self.model.model.tokenize(nodes, mask)
@@ -585,11 +585,11 @@ class IterableBert(Bert):
                     code_labels,
                 )
                 label = code_labels
-                # self.quantize_inpt is unsupported on the PARCEL VQ-VAE
+                # self.quantize_inpt is unsupported on RINO's shared VQ-VAE
                 # (no same-dim quantised-particles output); assert we don't
                 # silently fall through.
                 assert not self.quantize_inpt, (
-                    "quantize_inpt=True is not supported with PARCEL VQ-VAE. "
+                    "quantize_inpt=True is not supported with RINO's shared VQ-VAE. "
                     "Leave quantized_dim unset in the model config."
                 )
             else:

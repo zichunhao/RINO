@@ -450,7 +450,7 @@ CONVERTERS = {
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Convert baseline checkpoints to PARCEL finetune format"
+        description="Convert baseline checkpoints to RINO finetune format"
     )
     parser.add_argument(
         "--model",

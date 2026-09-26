@@ -29,6 +29,10 @@ class RINOH5Iterator:
         - nodes: (n_csts, 7) RINO particle features
         - mask: (n_csts,) bool mask
         - label: (1,) class index
+
+    Constituents must be stored in descending pT (feature 0 is the normalised
+    log pT): MPM's per-slot positional encoding assumes slot i holds the i-th
+    hardest particle. This is checked on the first chunk each iterator loads.
     """
 
     def __init__(
@@ -41,8 +45,12 @@ class RINOH5Iterator:
         max_files: int = None,  # unused
         features: list = None,  # unused
         chunk_size: int = 1000,  # contiguous rows per h5 call
+        n_classes: int = 512,  # prediction targets = VQ-VAE codebook size
     ):
         self.dset = dset
+        # Reported to the model as n_classes. IterableBert reads the codebook
+        # size from the tokenizer itself and warns if this value differs.
+        self.n_classes = n_classes
         self.n_nodes = n_nodes
         self.features = None  # interface compat
         self.chunk_size = chunk_size
@@ -113,7 +121,24 @@ class RINOH5Iterator:
             self.tokens_file = h5py.File(self.tokens_path, "r", swmr=True)
 
     def get_nclasses(self):
-        return 10
+        return self.n_classes
+
+    @staticmethod
+    def check_pt_order(csts: np.ndarray, mask: np.ndarray, tol: float = 1e-5) -> None:
+        """Raise if real constituents are not in descending pT.
+
+        Args:
+            csts: ``(B, N, F)`` particle features; feature 0 is normalised log pT.
+            mask: ``(B, N)`` True for real particles (padding at the end).
+            tol: Allowed increase between neighbours (float rounding).
+        """
+        rises = np.diff(csts[..., 0], axis=1)[mask[:, 1:]]
+        if rises.size and rises.max() > tol:
+            raise ValueError(
+                "Constituents are not sorted by descending pT "
+                f"(largest increase {rises.max():.3g}); sort them before "
+                "writing the HDF5 file."
+            )
 
     def _load_chunk(self):
         """Load a contiguous chunk of rows from h5 into memory."""
@@ -151,6 +176,8 @@ class RINOH5Iterator:
             self.file["mask"][start:end, : self.n_nodes].astype(bool)
         )
         self._chunk_labels = self.file["labels"][start:end].astype(np.float32)
+        if self._total_chunks_loaded == 0:
+            self.check_pt_order(self._chunk_csts, self._chunk_mask)
         if self.has_tokens:
             self._chunk_code_labels = (
                 self.tokens_file["code_labels"][start:end, : self.n_nodes].astype(

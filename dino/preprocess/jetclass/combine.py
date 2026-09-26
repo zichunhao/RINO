@@ -51,19 +51,34 @@ def main() -> None:
         raise FileNotFoundError(f"No files matching {args.pattern} in {in_dir}")
     LOGGER.info(f"Found {len(files)} input files in {in_dir}")
 
-    # Pass 1: read row counts so we can preallocate exactly.
+    # Pass 1: read row counts and the per-key maximum trailing shape across all
+    # files. Shards can be padded to different particle counts (e.g. 89 vs 90
+    # when each file is padded to its own maximum), so the output is sized to the
+    # largest shard and smaller shards are zero-padded.
     sizes: list[int] = []
+    max_tail: dict[str, tuple[int, ...]] = {}
+    dtypes: dict[str, np.dtype] = {}
     for f in tqdm(files, desc="metadata"):
         with h5py.File(f, "r") as h:
             first_key = next(iter(h.keys()))
             sizes.append(h[first_key].shape[0])
+            for k in h.keys():
+                tail = tuple(h[k].shape[1:])
+                if k not in max_tail:
+                    max_tail[k] = tail
+                    dtypes[k] = h[k].dtype
+                elif len(tail) != len(max_tail[k]):
+                    raise ValueError(
+                        f"{f.name}: key {k!r} has rank {len(tail) + 1}, "
+                        f"expected {len(max_tail[k]) + 1}"
+                    )
+                else:
+                    max_tail[k] = tuple(max(a, b) for a, b in zip(max_tail[k], tail))
     total_rows = int(np.sum(sizes))
     LOGGER.info(f"Total rows: {total_rows:,}")
 
-    # Peek at the first file to get schema.
-    with h5py.File(files[0], "r") as h:
-        schema = {k: (h[k].shape[1:], h[k].dtype) for k in h.keys()}
-    LOGGER.info(f"Schema: {len(schema)} datasets")
+    schema = {k: (max_tail[k], dtypes[k]) for k in max_tail}
+    LOGGER.info(f"Schema: {len(schema)} datasets (max trailing shape across files)")
 
     # Create output datasets with final shape preallocated.
     LOGGER.info(f"Creating {out_file}")
@@ -92,7 +107,13 @@ def main() -> None:
                 for key in schema:
                     if key not in h:
                         continue
-                    out[key][row : row + nrows] = h[key][:]
+                    src = h[key][:]
+                    # A shard with a smaller trailing shape than the schema is
+                    # copied into the leading sub-slice; the rest stays zero.
+                    idx = (slice(row, row + nrows),) + tuple(
+                        slice(0, s) for s in src.shape[1:]
+                    )
+                    out[key][idx] = src
             row += nrows
 
         assert row == total_rows, f"row mismatch: wrote {row}, expected {total_rows}"

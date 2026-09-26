@@ -150,9 +150,11 @@ class CachedJetDataset(Dataset):
             f"({self.total_cache_size/1e9:.2f}GB)"
         )
 
-        # Synchronize all processes
-        if accelerator is not None:
-            accelerator.wait_for_everyone()
+        # No accelerator.wait_for_everyone() here: this runs during dataset
+        # construction, before accelerator.prepare() assigns each rank its GPU, and
+        # an NCCL collective at that point can map several ranks to the same device
+        # on multi-GPU runs. Each rank preloads its own file shard independently,
+        # and accelerator.prepare() is itself a collective that synchronizes ranks.
 
     def _estimate_memory_size(self, path: Path) -> int:
         """Estimate memory requirements based on file size"""

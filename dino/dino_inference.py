@@ -496,28 +496,39 @@ def save_batches(
 
         # --- Overall metrics ---
         if "jetclass" in split and logits.shape[-1] == 1:
-            # Binary: QCD (0) → 0, everything else → 1
-            mask_logits = logits
-            mask_labels = (labels != 0).long()
+            # Binary (top-vs-QCD) head: the OOD metric is restricted to QCD
+            # (label 0) vs Tbqq (label 8). Jets of the other JetClass classes are
+            # excluded, since the head was not trained to separate them from QCD
+            # and counting them would inflate the accuracy. Use eval_subsets for
+            # other signal classes.
+            keep = (labels == 0) | (labels == 8)
+            mask_logits = logits[keep]
+            mask_labels = (labels[keep] == 8).long()
         else:
             mask_logits = logits
             mask_labels = labels
 
-        if mask_logits.shape[-1] == 1:
+        if mask_logits.shape[-1] == 1 and mask_labels.unique().numel() < 2:
+            LOGGER.warning(
+                f"[{split}] Overall binary metrics need both classes "
+                f"(QCD and Tbqq for JetClass); skipping them."
+            )
+        elif mask_logits.shape[-1] == 1:
             split_metrics = _compute_binary_metrics(mask_logits, mask_labels)
         else:
             preds = mask_logits.argmax(dim=-1)
             split_metrics = {"acc": float((preds == mask_labels).float().mean().item())}
 
-        results["acc"] = split_metrics["acc"]
-        LOGGER.info(
-            f"[{split}] acc={split_metrics['acc']:.4f}"
-            + (f"  precision={split_metrics['precision']:.4f}"
-               f"  recall={split_metrics['recall']:.4f}"
-               f"  f1={split_metrics['f1']:.4f}"
-               f"  auc={split_metrics['auc']:.4f}" if "auc" in split_metrics else "")
-        )
-        if wandb_run is not None:
+        if split_metrics is not None:
+            results["acc"] = split_metrics["acc"]
+            LOGGER.info(
+                f"[{split}] acc={split_metrics['acc']:.4f}"
+                + (f"  precision={split_metrics['precision']:.4f}"
+                   f"  recall={split_metrics['recall']:.4f}"
+                   f"  f1={split_metrics['f1']:.4f}"
+                   f"  auc={split_metrics['auc']:.4f}" if "auc" in split_metrics else "")
+            )
+        if wandb_run is not None and split_metrics is not None:
             epoch = config["inference"]["load_epoch"]
             step = epoch if isinstance(epoch, int) else None
             log_kwargs = {"step": step} if step is not None else {}

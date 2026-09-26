@@ -8,5 +8,4 @@ from .positional_encoding import (
     ScaleProjection,
 )
 from .jet_transformer_encoder import JetTransformerEncoder
-from .particle_transformer import ParticleTransformer
 from .assembled_model import AssembledModel

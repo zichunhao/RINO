@@ -158,11 +158,27 @@ class FlowTask(TaskBase):
     """Estimating the density of the constituents using a normalising flow."""
 
     def __init__(
-        self, parent: nn.Module, embed_dim: int, flow_config: dict, **kwargs
+        self,
+        parent: nn.Module,
+        embed_dim: int,
+        flow_config: dict,
+        noise_dims: list[int] | None = None,
+        noise_std: float = 0.05,
+        **kwargs,
     ) -> None:
+        """Parameters
+        ----------
+        noise_dims : list[int] | None, optional
+            Feature indices that receive dequantisation noise before the flow
+            likelihood. None selects the last four features.
+        noise_std : float, optional
+            Standard deviation of the dequantisation noise; 0 disables it.
+        """
         super().__init__(input_dim=parent.outp_dim, **kwargs)
         self.head = nn.Linear(self.input_dim, embed_dim)
         self.flow = rqs_flow(xz_dim=parent.csts_dim, ctxt_dim=embed_dim, **flow_config)
+        self.noise_dims = slice(-4, None) if noise_dims is None else list(noise_dims)
+        self.noise_std = noise_std
 
     @T.autocast("cuda", enabled=False)  # Autocasting is bad for flows
     @T.autocast("cpu", enabled=False)
@@ -172,14 +188,14 @@ class FlowTask(TaskBase):
         csts = data["csts"]
         null_mask = data["null_mask"]
 
-        # The flow can't handle discrete targets which unfortunately affects the
-        # impact paramters. Even for charged particles, there are discrete values
-        # particularly in d0_err and dz_err. So we will add a tiny bit of noise.
-        # At this stage these variables should be normalised, so hopefully adding a
-        # little extra noise won't hurt.
-        # As this is an inplace operation, we need to clone the tensor
-        csts = csts.clone()
-        csts[..., -4:] += 0.05 * T.randn_like(csts[..., -4:])
+        # The flow can't handle discrete targets, such as the impact parameter
+        # errors d0_err and dz_err of the upstream features (the last four by
+        # default), so a little noise is added to the selected features. Continuous
+        # features such as the RINO kinematics need none (noise_std: 0).
+        if self.noise_std > 0:
+            csts = csts.clone()  # The noise is added in place
+            noise = T.randn_like(csts[..., self.noise_dims])
+            csts[..., self.noise_dims] += self.noise_std * noise
 
         # Calculate the conditional likelihood under the flow
         inpt = csts[null_mask].float()
@@ -205,7 +221,16 @@ class KmeansTask(TaskBase):
         # If using three dimensions replace the suffix with 3
         if parent.csts_dim == 3:
             kmeans_path = kmeans_path.replace("_7.pkl", "_3.pkl")
-        self.kmeans = T.load(kmeans_path, map_location=parent.device)
+        if not Path(kmeans_path).is_file():
+            raise FileNotFoundError(
+                f"K-means codebook not found: {kmeans_path}. Fit one with "
+                "scripts/fit_kmeans_rino.py or set model.tasks.kmeans.kmeans_path."
+            )
+        # The codebook is a pickled module (torchpq KMeans or
+        # src.models.kmeans.KMeansCodebook), so it needs a full unpickle
+        self.kmeans = T.load(
+            kmeans_path, map_location=parent.device, weights_only=False
+        )
         self.head = nn.Linear(self.input_dim, self.kmeans.n_clusters)
 
         # Load the class weights using the kmeans module itself
@@ -240,7 +265,7 @@ class VQVAETask(TaskBase):
 
     def __init__(self, parent: nn.Module, vae_path: str, **kwargs) -> None:
         super().__init__(input_dim=parent.outp_dim, **kwargs)
-        self.vae = T.load(vae_path, map_location=parent.device)
+        self.vae = T.load(vae_path, map_location=parent.device, weights_only=False)
         self.head = nn.Linear(self.input_dim, self.vae.quantizer.codebook_size)
 
         # Make sure that the vae is not trainable

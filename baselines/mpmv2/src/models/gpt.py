@@ -80,10 +80,10 @@ class JetGPT(pl.LightningModule):
 
         # Load clustering model
         if self.do_kmeans:
-            self.kmeans = T.load(kmeans_path, map_location="cpu")
+            self.kmeans = T.load(kmeans_path, map_location="cpu", weights_only=False)
             self.num_clusters = self.kmeans.centroids.shape[1]
         else:
-            self.vae = T.load(vae_path, map_location="cpu")
+            self.vae = T.load(vae_path, map_location="cpu", weights_only=False)
             self.vae.requires_grad_(False)
             self.vae.eval()
             self.num_clusters = self.vae.quantizer.codebook_size

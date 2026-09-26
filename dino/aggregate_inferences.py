@@ -31,15 +31,23 @@ from tqdm import tqdm
 
 
 def compute_accuracy(logits: torch.Tensor, labels: torch.Tensor, split: str) -> float:
-    """Compute accuracy from logits and labels, handling JetClass label remapping."""
+    """Compute accuracy from logits and labels, handling JetClass label remapping.
+
+    For JetClass with a binary (top-vs-QCD) head, the OOD metric is restricted to
+    QCD (label 0) vs Tbqq (label 8), with score > 0 meaning Tbqq. Jets of the other
+    signal classes are excluded, since the head was not trained to separate them
+    from QCD and counting them would inflate the accuracy.
+    """
     if "jetclass" in split:
-        # Remove leptonic top (label 9)
-        mask = labels != 9
-        logits = logits[mask]
-        labels = labels[mask]
-        # Remap JetClass multi-class labels to binary (0=QCD, else=1)
         if logits.shape[-1] == 1:
-            labels = (labels != 0).long()
+            keep = (labels == 0) | (labels == 8)
+            logits = logits[keep]
+            labels = (labels[keep] == 8).long()
+        else:
+            # Multi-class head: drop leptonic top (label 9)
+            mask = labels != 9
+            logits = logits[mask]
+            labels = labels[mask]
 
     if logits.shape[-1] == 1:
         preds = (logits[:, 0] > 0).long()
@@ -113,29 +121,16 @@ def _save_metrics_json(inference_dir: Path, split: str, acc: float, epoch: str =
         json.dump(data, f, indent=2)
 
 
-def load_split_scalar_metrics(inference_dir: Path, split: str) -> dict | None:
-    """Load all scalar metrics for a split. Returns dict with acc/precision/recall/f1/auc
-    or None if not available. Falls back to recomputing acc from .pt files."""
-    # 1. Try JSON metrics file (new or old format)
-    metrics = load_split_metrics(inference_dir, split)
-    if metrics is not None and "acc" in metrics:
-        return {k: float(metrics[k]) for k in _SCALAR_METRICS if k in metrics}
+def _recompute_acc_from_pt(inference_dir: Path, split: str) -> float | None:
+    """Recompute acc from the saved logits and labels via compute_accuracy.
 
-    # 2. Try pre-computed acc from .pt files
+    Any `acc` cached in the JSON or .pt files is ignored, so the JetClass value is
+    always the restricted Tbqq-vs-QCD metric of compute_accuracy.
+    """
     candidates = sorted(inference_dir.glob(f"output_{split}_*.pt"))
     if not candidates:
         return None
 
-    epoch = candidates[0].stem.split("_")[-1]
-
-    for path in candidates:
-        data = torch.load(path, map_location="cpu", weights_only=False, mmap=True)
-        if "acc" in data:
-            acc = float(data["acc"])
-            _save_metrics_json(inference_dir, split, acc, epoch)
-            return {"acc": acc}
-
-    # 3. Fallback: recompute from logits + labels
     all_logits, all_labels = [], []
     for path in candidates:
         data = torch.load(path, map_location="cpu", weights_only=False, mmap=True)
@@ -148,14 +143,34 @@ def load_split_scalar_metrics(inference_dir: Path, split: str) -> dict | None:
 
     logits = torch.cat(all_logits, dim=0)
     labels = torch.cat(all_labels, dim=0)
-    acc = compute_accuracy(logits, labels, split)
+    return compute_accuracy(logits, labels, split)
+
+
+def load_split_scalar_metrics(inference_dir: Path, split: str) -> dict | None:
+    """Load all scalar metrics for a split. Returns dict with acc/precision/recall/f1/auc
+    or None if not available. Falls back to recomputing acc from .pt files.
+
+    For JetClass splits, acc is always recomputed from the .pt outputs (restricted
+    Tbqq-vs-QCD metric); auc/precision/recall/f1 are taken from the JSON metrics.
+    The .pt inference outputs are only read, never modified.
+    """
+    # 1. Try JSON metrics file (new or old format)
+    metrics = load_split_metrics(inference_dir, split)
+    if metrics is not None and "acc" in metrics:
+        out = {k: float(metrics[k]) for k in _SCALAR_METRICS if k in metrics}
+        if "jetclass" in split:
+            recomputed = _recompute_acc_from_pt(inference_dir, split)
+            if recomputed is not None:
+                out["acc"] = recomputed
+        return out
+
+    # 2. Fallback: recompute acc from logits + labels in the .pt files
+    acc = _recompute_acc_from_pt(inference_dir, split)
+    if acc is None:
+        return None
+    candidates = sorted(inference_dir.glob(f"output_{split}_*.pt"))
+    epoch = candidates[0].stem.split("_")[-1]
     _save_metrics_json(inference_dir, split, acc, epoch)
-
-    first_pt = candidates[0]
-    data = torch.load(first_pt, map_location="cpu", weights_only=False)
-    data["acc"] = acc
-    torch.save(data, first_pt)
-
     return {"acc": acc}
 
 

@@ -7,7 +7,7 @@ representation. Then computes pairwise cosine similarity across scales to
 test whether the representation is invariant under the RG flow.
 
 Usage:
-    python dino/scale_invariance_analysis.py \
+    python dino/diagnostics/scale_invariance_analysis.py \
         --config configs/dino/<pretrain>.yaml \
         --load-epoch best \
         --num-jets 10000 \
@@ -30,8 +30,8 @@ import torch
 import torch.nn.functional as F
 from tqdm import tqdm
 
-# Ensure project root is on sys.path
-MODULE_DIR = Path(__file__).resolve().parent
+# Make the dino/ modules (utils, models, dino_train) importable
+MODULE_DIR = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = MODULE_DIR.parent
 sys.path.insert(0, str(MODULE_DIR))
 

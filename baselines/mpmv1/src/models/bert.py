@@ -1,3 +1,4 @@
+import logging
 import math
 from functools import partial
 from pathlib import Path
@@ -16,6 +17,58 @@ from mattstools.mattstools.hydra_utils import reload_original_config
 from mattstools.mattstools.modules import NewIterativeNormLayer, SingleLinear
 from mattstools.mattstools.torch_utils import get_sched
 from mattstools.mattstools.transformers import ClassAttention, FullTransformerEncoder
+
+log = logging.getLogger(__name__)
+
+
+def _num_attention_heads(model_dim: int, candidates: tuple = (8, 7, 4, 2, 1)) -> int:
+    """Return the first head count in ``candidates`` that divides ``model_dim``.
+
+    Multi-head attention needs ``model_dim % num_heads == 0``. The order keeps
+    7 heads for the 427-code upstream tokenizer and gives 8 for a 512-code one.
+    """
+    return next(h for h in candidates if model_dim % h == 0)
+
+
+def load_vq_tokenizer(model_path) -> tuple:
+    """Load the VQ-VAE whose codes are the masked-particle targets.
+
+    Two formats are supported:
+        1. A plain Lightning ``.ckpt`` of the shared tokenizer in
+           ``baselines/vqvae`` (``SharedVQVAELightning``), loaded frozen.
+        2. An upstream MPM Hydra run directory (contains ``full_config.yaml``
+           and ``checkpoints/``).
+
+    Args:
+        model_path: Path to the ``.ckpt`` file or the Hydra run directory.
+
+    Returns:
+        ``(model, is_shared_vqvae, num_codes)``: the tokenizer, whether it is
+        the shared ``baselines/vqvae`` model, and its codebook size.
+    """
+    model_path = Path(model_path)
+    if model_path.is_file() and model_path.suffix == ".ckpt":
+        import sys
+
+        baselines_dir = Path(__file__).resolve().parents[3]  # mpmv1/src/models -> baselines/
+        if str(baselines_dir) not in sys.path:
+            sys.path.insert(0, str(baselines_dir))
+        from vqvae import SharedVQVAELightning  # noqa: E402
+
+        # weights_only=False because Lightning ckpts contain non-tensor
+        # hparams (AttributeDict) that torch 2.6+'s default rejects.
+        model = SharedVQVAELightning.load_from_checkpoint(
+            str(model_path), map_location="cpu", weights_only=False
+        )
+        model.eval()
+        for p in model.parameters():
+            p.requires_grad = False
+        return model, True, int(model.model.num_codes)
+
+    orig_cfg = reload_original_config(path_spec=model_path, get_best=False)
+    model_class = hydra.utils.get_class(orig_cfg.model._target_)
+    model = model_class.load_from_checkpoint(orig_cfg.ckpt_path)
+    return model, False, int(model.quantizer.num_codes)
 
 
 class FourierFeatures(nn.Module):
@@ -102,7 +155,13 @@ class Bert(LightningModule):
         if self.order_inputs:
             self.pos_encoding = nn.Parameter(T.zeros((1, n_nodes, self.n_pos_enc)))
         if positional_encoder is not None and isinstance(positional_encoder, partial):
-            # Don't order the inputs if we are using the positional encoder
+            # Don't order the inputs if we are using the positional encoder.
+            # Instead, a learned per-slot encoding is added to the backbone
+            # output and refined by a small transformer. Every masked slot
+            # enters the backbone as the same masked_token, so this is what
+            # lets masked particles in one jet receive different predictions.
+            # It relies on each slot having a fixed meaning: RINOH5Iterator
+            # checks that constituents are stored in descending pT.
             self.order_inputs = False
             self.pos_encode = True
             self.pos_encoding = nn.Parameter(T.zeros((1, n_nodes, self.n_classes)))
@@ -148,12 +207,17 @@ class Bert(LightningModule):
         if linear_track:
             self.cf_monitor = SingleLinear(self.n_classes, n_c)
         else:
+            # The probe attends over the n_classes-dim logits, so the head
+            # count must divide n_classes.
             self.cf_monitor = ClassAttention(
                 model_dim=self.n_classes,
                 num_ca_layers=2,
                 n_out=n_c,
                 dense_config={"hddn_dim": 2 * self.n_classes, "act_h": "silu"},
-                mha_config={"num_heads": 7, "do_layer_norm": True},
+                mha_config={
+                    "num_heads": _num_attention_heads(self.n_classes),
+                    "do_layer_norm": True,
+                },
             )
 
         self.track_loss = nn.CrossEntropyLoss(reduction="none")
@@ -181,18 +245,26 @@ class Bert(LightningModule):
         """Take the output of forward and process to finish taks."""
         return output
 
+    def check_label_range(self, lbl: T.Tensor) -> None:
+        """Raise if any target class index lies outside ``[0, n_classes)``.
+
+        For IterableBert, padded slots carry class 0 (they are never masked,
+        so ``false_mask`` zeroes their loss) and every real slot carries its
+        VQ code. An out-of-range value therefore means the targets and the
+        prediction head disagree (e.g. tokens precomputed with a different
+        VQ-VAE codebook).
+        """
+        if ((lbl < 0) | (lbl >= self.n_classes)).any():
+            raise ValueError(
+                f"Target class outside [0, {self.n_classes}): "
+                f"min={int(lbl.min())}, max={int(lbl.max())}"
+            )
+
     def get_loss(self, output, inp_nodes, label, mask, false_mask):
-        # Calculate the loss
-        lbl = label.view(-1)
-        # Clamp out-of-range labels: negatives (-1 pad) and values >= n_classes
-        # (unobserved codes remapped via stale entries in self.remap_label).
-        # These positions are excluded from the loss by `false_mask` anyway
-        # (line below multiplies by false_mask), so the clamped value is not
-        # learned from — the clamp only prevents nll_loss from asserting.
-        # Cast to long because nll_loss requires int64 class indices (the
-        # RINOH5Iterator stores labels as float32; even after set_labels'
-        # remap_label indexing, a stale code path may return Float).
-        lbl = lbl.clamp(0, self.n_classes - 1).long()
+        # Calculate the loss. Targets are integer class indices; cast to long
+        # because nll_loss requires int64.
+        lbl = label.view(-1).long()
+        self.check_label_range(lbl)
         loss = self.loss_fn(output.view(-1, self.n_classes), lbl)
         # Only use the loss at masked tokens
         loss = loss.view(mask.shape) * false_mask
@@ -238,12 +310,8 @@ class Bert(LightningModule):
     def get_metrics(self, sample: tuple, false_mask, output, label):
         false_indx = false_mask.to(T.bool)
         preds = output[false_indx]
-        lbls = label[false_indx]
-        # Clamp labels to [0, n_classes-1] — same reason as get_loss: stale
-        # self.remap_label entries can produce labels >= n_classes and
-        # torchmetrics' multiclass stat_scores asserts on bincount reshape.
-        # Cast to long for the same reason as get_loss.
-        lbls = lbls.clamp(0, self.n_classes - 1).long()
+        # Labels were range-checked in get_loss; torchmetrics needs int64.
+        lbls = label[false_indx].long()
         metrics = {}
         for key, func in self.metrics.items():
             metrics[key] = func(preds, lbls)
@@ -308,7 +376,10 @@ class Bert(LightningModule):
         anchor = sum(
             p.sum() * 0.0 for p in self.parameters() if p.requires_grad
         )
-        return loss.mean() + l1.mean().detach() + anchor, metrics
+        # The untrained cf_monitor probe is logged on its own, so total_loss
+        # (the checkpoint-selection metric) is the masked-prediction loss only.
+        metrics["track_loss"] = l1.mean()
+        return loss.mean() + anchor, metrics
 
     def log_wandb(self, loss: T.Tensor, metrics: dict, tag: str):
         self.log(f"{tag}/total_loss", loss)
@@ -408,12 +479,13 @@ class Bert(LightningModule):
 
 
 class IterableBert(Bert):
-    """A subclass is required to infer the number of labels that are present in
-    the dataset, and to find the labels in the forward pass.
+    """Bert whose masked-particle targets are the codes of a frozen VQ-VAE.
 
-    Iterable datasets are too large to create a saved and labelled copy.
-    The other option would be to load a separate file of labels. This
-    probably makes more sense.
+    The iterable datasets are too large to store a labelled copy, so each
+    batch is tokenized on the fly (or read from precomputed ``*_tokens.h5``
+    files). The class index of every particle is its raw VQ code, so the
+    prediction head has one output per codebook entry and ``n_classes`` is
+    taken from the tokenizer rather than from the datamodule.
     """
 
     def __init__(
@@ -439,6 +511,17 @@ class IterableBert(Bert):
             self.quantize_inpt = True
         else:
             self.quantize_inpt = False
+
+        # The tokenizer is loaded first because its codebook size sets the
+        # width of the prediction head built in Bert.__init__.
+        vq_model, is_shared_vqvae, num_codes = load_vq_tokenizer(model_path)
+        if n_classes != num_codes:
+            log.warning(
+                f"Datamodule reports n_classes={n_classes}, but the VQ-VAE "
+                f"codebook has {num_codes} codes; using {num_codes}."
+            )
+        n_classes = num_codes
+
         super().__init__(
             inpt_dim=inpt_dim,
             n_nodes=n_nodes,
@@ -453,49 +536,8 @@ class IterableBert(Bert):
             backbone_config=backbone_config,
             **kwargs,
         )
-        # Load the VQ-VAE.  Two formats supported:
-        #   1. Original mpm Hydra run-dir (contains full_config.yaml + checkpoints/).
-        #   2. PARCEL plain Lightning .ckpt from baselines/vqvae/.
-        from pathlib import Path as _Path
-        _mp = _Path(model_path)
-        if _mp.is_file() and _mp.suffix == ".ckpt":
-            # PARCEL SharedVQVAELightning branch — load from a plain .ckpt.
-            import sys as _sys
-            _baselines_dir = _Path(__file__).resolve().parents[3]  # mpmv1/src/models -> baselines/
-            if str(_baselines_dir) not in _sys.path:
-                _sys.path.insert(0, str(_baselines_dir))
-            from vqvae import SharedVQVAELightning  # noqa: E402
-            # weights_only=False because Lightning ckpts contain non-tensor
-            # hparams (AttributeDict) that torch 2.6+'s default rejects.
-            self.model = SharedVQVAELightning.load_from_checkpoint(
-                str(_mp), map_location="cpu", weights_only=False
-            )
-            self.model.eval()
-            for _p in self.model.parameters():
-                _p.requires_grad = False
-            self._parcel_vqvae = True
-            _num_codes = self.model.model.num_codes
-        else:
-            orig_cfg = reload_original_config(path_spec=model_path, get_best=False)
-            model_class = hydra.utils.get_class(orig_cfg.model._target_)
-            self.model = model_class.load_from_checkpoint(orig_cfg.ckpt_path)
-            self._parcel_vqvae = False
-            _num_codes = self.model.quantizer.num_codes
-
-        # Not all of the outputs of the loaded model will be used, so we need to remap them
-        self.register_buffer(
-            "remap_label", T.zeros(_num_codes, dtype=T.long)
-        )
-        # Register as buffer so DDP / .to(device) move it — previously this was
-        # a plain attribute, which caused a device mismatch in set_labels when
-        # the model is on GPU but this tensor stayed on CPU.
-        self.register_buffer(
-            "unique_labels", T.zeros([427], dtype=T.long)
-        )
-        # self.register_buffer('unique_labels', nn.parameter.UninitializedBuffer(dtype=T.long))
-        # Don't want to include super rare classes
-        self.max_iter = 100
-        self.lab_iter = 0
+        self.model = vq_model
+        self._parcel_vqvae = is_shared_vqvae
 
     def preprocess_inputs(self, sample):
         with T.no_grad():
@@ -521,6 +563,7 @@ class IterableBert(Bert):
                 # This removes the data-dependent-shape quantizer call from
                 # training_step, which was deadlocking DDP's NCCL allreduce
                 # because per-rank KeOps JIT compile times diverged.
+                # Padded slots are stored as -1 and mapped to 0, as below.
                 code_labels = T.where(
                     precomputed_code_labels < 0,
                     T.zeros_like(precomputed_code_labels),
@@ -533,8 +576,8 @@ class IterableBert(Bert):
             elif self._parcel_vqvae:
                 self.model.eval()
                 # PARCEL's SharedVQVAE returns (B, N) long with -1 for padded
-                # positions; remap to 0 so self.remap_label indexing stays in
-                # range.  The downstream loss mask ignores padded positions.
+                # positions; map them to 0 so every slot holds a valid class
+                # index. Padded slots are never masked, so they carry no loss.
                 code_labels = self.model.model.tokenize(nodes, mask)
                 code_labels = T.where(
                     code_labels < 0,
@@ -564,29 +607,12 @@ class IterableBert(Bert):
         return sample
 
     def set_labels(self, proposed_labels):
-        in_shape = proposed_labels.shape
-        proposed_labels = proposed_labels.view(-1).to(T.long)
-        # Ensure registered buffers are on the same device as the current batch.
-        # Re-assigning `self.unique_labels` below breaks the buffer registration
-        # so Lightning's auto-move doesn't see it; force-move defensively.
-        device = proposed_labels.device
-        if self.unique_labels.device != device:
-            self.unique_labels = self.unique_labels.to(device)
-        if self.remap_label.device != device:
-            self.remap_label = self.remap_label.to(device)
-        if self.lab_iter == 0:
-            self.unique_labels = T.Tensor([]).to(self.unique_labels)
-        if self.lab_iter < self.max_iter:
-            self.lab_iter += 1
-            if len(self.unique_labels) < self.n_classes:
-                self.unique_labels = T.unique(
-                    T.concatenate((self.unique_labels, proposed_labels))
-                ).to(T.long)
-                # Remap the labels
-                self.remap_label[self.unique_labels] = T.arange(
-                    len(self.unique_labels), dtype=T.long
-                ).to(self.remap_label)
-        return self.remap_label[proposed_labels].view(*in_shape)
+        """Map VQ codes to class indices (the identity).
+
+        Every codebook entry is its own class, so the mapping is the same on
+        every rank and codes that never occur are simply never targets.
+        """
+        return proposed_labels.long()
 
 
 class IterableBertFixedEncoding(Bert):

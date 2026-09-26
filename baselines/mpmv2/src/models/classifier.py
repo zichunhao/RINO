@@ -45,7 +45,9 @@ class Classifier(LightningModule):
 
         # Load the pretrained and pickled JetBackbone object.
         log.info(f"Loading backbone from {backbone_path}")
-        self.backbone: JetBackbone = T.load(backbone_path, map_location="cpu")
+        self.backbone: JetBackbone = T.load(
+            backbone_path, map_location="cpu", weights_only=False
+        )
         self.backbone.encoder.unpack_output = True
 
         # Create the head for the downstream task
@@ -258,10 +260,10 @@ class TokenisedClassifier(LightningModule):
 
         # Load clustering model
         if token_type == "kmeans":
-            self.kmeans = T.load(kmeans_path, map_location="cpu")
+            self.kmeans = T.load(kmeans_path, map_location="cpu", weights_only=False)
             self.num_clusters = self.kmeans.centroids.shape[1]
         elif token_type == "vae":
-            self.vae = T.load(vae_path, map_location="cpu")
+            self.vae = T.load(vae_path, map_location="cpu", weights_only=False)
             self.vae.requires_grad_(False)
             self.vae.eval()
             self.num_clusters = self.vae.quantizer.codebook_size

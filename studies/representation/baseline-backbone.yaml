@@ -1,0 +1,25 @@
+# Architecture of the baseline backbones converted by
+# baselines/scripts/convert_checkpoint.py ({"backbone": state_dict} files for
+# MPMv1, MPMv2, JetCLR and OmniJet-alpha). Used with --model-type backbone by
+# studies/representation/{domain_shift,scale_structure}/*.py; only
+# models.backbone and use_bf16 are read. The particle input dimension (part_dim)
+# is taken from the dataloader config.
+
+use_bf16: true
+
+models:
+  backbone:
+    type: "JetTransformerEncoder"
+    params:
+      d_model: 256
+      nhead: 16
+      num_layers: 8
+      pooling: mean
+      activation: SwiGLU
+      norm: RMSNorm
+      layer_scale_init: 0.01
+      num_registers: 4
+      jet_dim: 4
+      mlp_ratio: 4
+      apply_final_norm: true
+      apply_embedding_norm: true

@@ -1,5 +1,6 @@
 """Basic training script."""
 
+import inspect
 import logging
 from pathlib import Path
 
@@ -86,7 +87,13 @@ def main(cfg: DictConfig) -> None:
     save_config(cfg)
 
     log.info("Starting training!")
-    trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.ckpt_path)
+    # Resuming unpickles the model hyperparameters (functools.partial objects)
+    # from the checkpoint; Lightning versions that expose weights_only otherwise
+    # defer to torch's weights-only default, which rejects them.
+    fit_kwargs = {}
+    if "weights_only" in inspect.signature(trainer.fit).parameters:
+        fit_kwargs["weights_only"] = False
+    trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.ckpt_path, **fit_kwargs)
 
     if trainer.state.status == "finished":
         log.info("Declaring job as finished!")

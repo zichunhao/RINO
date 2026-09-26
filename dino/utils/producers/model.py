@@ -5,8 +5,6 @@ from pathlib import Path
 
 from models import (
     JetTransformerEncoder,
-    OldJetTransformerEncoder,
-    ParticleTransformer,
     DINOHead,
     MLPHead,
     PositionalEncoding,
@@ -81,12 +79,12 @@ def get_models(
     mode: Literal["training", "inference"] = "training",
 ) -> tuple[
     tuple[
-        JetTransformerEncoder | ParticleTransformer,
+        JetTransformerEncoder,
         DINOHead | MLPHead,
         DINOHead | MLPHead | None,
     ],
     tuple[
-        JetTransformerEncoder | ParticleTransformer,
+        JetTransformerEncoder,
         DINOHead | MLPHead,
         DINOHead | MLPHead | None,
     ],
@@ -133,12 +131,8 @@ def get_models(
     compile_model = config.get("compile_model", False)
 
     if "jet" in backbone_type.lower():
-        if "old" in backbone_type.lower():
-            backbone_class = OldJetTransformerEncoder
-            extra_params = {"batch_first": True}
-        else:
-            backbone_class = JetTransformerEncoder
-            extra_params = {}
+        backbone_class = JetTransformerEncoder
+        extra_params = {}
 
         LOGGER.info("Using JetTransformer model")
         # Create student model
@@ -155,21 +149,6 @@ def get_models(
             part_dim=part_dim,
             **backbone_params,
             **extra_params,
-        )
-        if device:
-            teacher_backbone = teacher_backbone.to(device)
-    elif "particle" in backbone_type.lower():
-        LOGGER.info(f"Using ParticleTransformer model (input_dim = {part_dim})")
-        student_backbone = ParticleTransformer(
-            input_dim=part_dim,
-            **backbone_params,
-        )
-        if device:
-            student_backbone = student_backbone.to(device)
-
-        teacher_backbone = ParticleTransformer(
-            input_dim=part_dim,
-            **backbone_params,
         )
         if device:
             teacher_backbone = teacher_backbone.to(device)
@@ -378,7 +357,7 @@ def get_models_single(
     device: str | None = None,
     mode: Literal["training", "inference"] = "training",
 ) -> tuple[
-    JetTransformerEncoder | ParticleTransformer,
+    JetTransformerEncoder,
     DINOHead | MLPHead,
     DINOHead | MLPHead | None,
     PositionalEncoding | None,
@@ -414,18 +393,11 @@ def get_models_single(
     compile_model = config.get("compile_model", False)
 
     if "jet" in backbone_type.lower():
-        if "old" in backbone_type.lower():
-            backbone_class = OldJetTransformerEncoder
-            extra_params = {"batch_first": True}
-        else:
-            backbone_class = JetTransformerEncoder
-            extra_params = {}
+        backbone_class = JetTransformerEncoder
+        extra_params = {}
 
         LOGGER.info("Using JetTransformer model")
         backbone = backbone_class(part_dim=part_dim, **backbone_params, **extra_params)
-    elif "particle" in backbone_type.lower():
-        LOGGER.info(f"Using ParticleTransformer model (input_dim = {part_dim})")
-        backbone = ParticleTransformer(input_dim=part_dim, **backbone_params)
     else:
         raise NotImplementedError(f"Backbone type {backbone_type} not implemented")
 
@@ -627,10 +599,10 @@ def _should_load_checkpoint(config: dict, mode: str) -> bool:
 
 
 def _load_model_states(
-    student_backbone: JetTransformerEncoder | ParticleTransformer,
+    student_backbone: JetTransformerEncoder,
     student_dino_head: DINOHead | MLPHead,
     student_ibot_head: DINOHead | MLPHead | None,
-    teacher_backbone: JetTransformerEncoder | ParticleTransformer,
+    teacher_backbone: JetTransformerEncoder,
     teacher_dino_head: DINOHead | MLPHead,
     teacher_ibot_head: DINOHead | MLPHead | None,
     config: dict,

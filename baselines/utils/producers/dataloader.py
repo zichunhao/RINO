@@ -3,8 +3,21 @@ import multiprocessing
 from dataloader import jetclass, processed
 from ..logger import LOGGER
 from accelerate import Accelerator
+from omegaconf import ListConfig
 
-PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+
+
+def resolve_project_root(value):
+    """Replace the `PROJECT_ROOT` placeholder in a path string or list of paths.
+
+    Non-string values are returned unchanged.
+    """
+    if isinstance(value, str):
+        return value.replace("PROJECT_ROOT", str(PROJECT_ROOT))
+    if isinstance(value, (list, tuple, ListConfig)):
+        return [resolve_project_root(v) for v in value]
+    return value
 
 
 def get_dataloader_and_config(
@@ -180,9 +193,7 @@ def get_config(
             f"No dataloader config found for split {split}. Using default."
         )
         config_dataloader_path = config[mode]["dataloader"]["default"]["config"]
-    config_dataloader_path = config_dataloader_path.replace(
-        "PROJECT_ROOT", str(PROJECT_ROOT)
-    )
+    config_dataloader_path = resolve_project_root(config_dataloader_path)
     if not Path(config_dataloader_path).exists():
         raise FileNotFoundError(
             f"Dataloader config not found: {config_dataloader_path}"
@@ -191,5 +202,8 @@ def get_config(
         config = processed.DataloaderConfig(path=config_dataloader_path)
     else:
         config = jetclass.DataloaderConfig(path=config_dataloader_path)
+    # Data paths in the dataloader config may also use the PROJECT_ROOT placeholder
+    for data_split, data_path in list(config.paths.items()):
+        config.paths[data_split] = resolve_project_root(data_path)
     # LOGGER.debug(f"Dataloader config (split={split}): {config}")
     return config

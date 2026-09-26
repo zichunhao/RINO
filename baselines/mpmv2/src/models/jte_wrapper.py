@@ -11,8 +11,8 @@ JetTransformerEncoder instead:
   - returns a (rep, particles_out) tuple with optional pooling
 
 This wrapper bypasses JTE's embedding layer and pooling, using only its
-transformer backbone, final norm, and register tokens.  MPM's own csts_emb
-/ csts_id_emb layers handle the embedding as before.
+embedding norm, register tokens, transformer backbone and final norm.  MPM's
+own csts_emb / csts_id_emb layers handle the embedding as before.
 """
 
 import sys
@@ -33,9 +33,10 @@ from models.jet_transformer_encoder import JetTransformerEncoder  # noqa: E402
 class JetTransformerMLToolsWrapper(nn.Module):
     """Wrap JetTransformerEncoder to expose the mltools Transformer interface.
 
-    Only the transformer backbone, final norm, and register tokens from JTE
-    are used.  The embedding and pooling layers of JTE are intentionally
-    bypassed — MPM supplies pre-embedded tokens and reads per-token outputs.
+    Only the embedding norm, register tokens, transformer backbone and final
+    norm from JTE are used.  The embedding and pooling layers of JTE are
+    intentionally bypassed — MPM supplies pre-embedded tokens and reads
+    per-token outputs.
 
     Parameters
     ----------
@@ -116,6 +117,13 @@ class JetTransformerMLToolsWrapper(nn.Module):
         ``(B, num_registers + N, d_model)`` — per-token embeddings after
         the transformer stack and final normalisation.
         """
+        # Apply JTE's embedding norm to the embedded tokens, as
+        # JetTransformerEncoder.forward does after its particle embedding
+        # (nn.Identity when apply_embedding_norm is false).  With csts_emb
+        # copied into JTE's particle_embedding, the pretrained encoder and the
+        # finetuned JTE then compute the same function.
+        x = self.jte.part_norm(x)
+
         # Convert from mltools convention (True=valid) to PyTorch attn
         # convention (True=ignored / padding).
         padding_mask = ~mask

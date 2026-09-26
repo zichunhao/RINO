@@ -4,8 +4,6 @@ import torch
 
 from models import (
     JetTransformerEncoder,
-    OldJetTransformerEncoder,
-    ParticleTransformer,
     MLPHead,
     AssembledModel,
 )
@@ -53,25 +51,12 @@ def get_models_finetune(
 
     if "jet" in backbone_type.lower():
         LOGGER.info("Using JetTransformer backbone")
-        if "old" in backbone_type.lower():
-            LOGGER.info("Using OLD JetTransformer model")
-            backbone_class = OldJetTransformerEncoder
-            extra_params = {"batch_first": True}
-        else:
-            backbone_class = JetTransformerEncoder
-            extra_params = {}
+        backbone_class = JetTransformerEncoder
+        extra_params = {}
         backbone = backbone_class(
             part_dim=part_dim,
             **backbone_params,
             **extra_params,
-        )
-        if device:
-            backbone = backbone.to(device)
-    elif "particle" in backbone_type.lower():
-        LOGGER.info("Using ParticleTransformer backbone")
-        backbone = ParticleTransformer(
-            input_dim=part_dim,
-            **backbone_params,
         )
         if device:
             backbone = backbone.to(device)
@@ -180,7 +165,7 @@ def _should_load_checkpoint(config: dict, mode: str) -> bool:
 
 
 def _load_model_states(
-    backbone: JetTransformerEncoder | ParticleTransformer,
+    backbone: JetTransformerEncoder,
     head: MLPHead,
     config: dict,
     mode: str = "training",

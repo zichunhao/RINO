@@ -11,6 +11,7 @@ Lazy-open h5py pattern so DataLoader workers each re-open after fork.
 """
 
 import logging
+from pathlib import Path
 
 import h5py
 import lightning as L
@@ -19,6 +20,11 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 
 log = logging.getLogger(__name__)
+
+# Repository root (baselines/omnijet_alpha/gabbro/data/ -> 4 levels up); default
+# data paths follow the layout described in configs/data-README.md.
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+_JETNET_DIR = _REPO_ROOT / "data" / "JetNet" / "JetNet30_gqt"
 
 _NORM = {
     "log_pt":         {"mean":  1.7, "std": 1.8},
@@ -142,9 +148,9 @@ class JetNetBinaryDataModule(L.LightningDataModule):
 
     def __init__(
         self,
-        train_path: str = "PROJECT_ROOT/data/JetNet/JetNet30_gqt/gqt_train.h5",
-        val_path: str   = "PROJECT_ROOT/data/JetNet/JetNet30_gqt/gqt_val.h5",
-        test_path: str  = "PROJECT_ROOT/data/JetNet/JetNet30_gqt/gqt_test.h5",
+        train_path: str = str(_JETNET_DIR / "gqt_train.h5"),
+        val_path: str   = str(_JETNET_DIR / "gqt_val.h5"),
+        test_path: str  = str(_JETNET_DIR / "gqt_test.h5"),
         batch_size: int = 500,
         num_workers: int = 6,
         n_csts: int = 128,

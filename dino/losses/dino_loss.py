@@ -38,6 +38,7 @@ Config example
 from __future__ import annotations
 
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Literal
@@ -248,7 +249,16 @@ class DINOLoss(nn.Module):
     def apply_center_update(self, teacher_output: torch.Tensor) -> None:
         if not self.training:
             return
-        batch_center = teacher_output.mean(dim=0, keepdim=True)
+        # Batch mean over all ranks: all-reduce the sum and the count so every
+        # rank applies the same center update under distributed training.
+        batch_sum = teacher_output.float().sum(dim=0, keepdim=True)
+        batch_n = torch.tensor(
+            [teacher_output.shape[0]], device=teacher_output.device, dtype=torch.float32
+        )
+        if dist.is_available() and dist.is_initialized():
+            dist.all_reduce(batch_sum, op=dist.ReduceOp.SUM)
+            dist.all_reduce(batch_n, op=dist.ReduceOp.SUM)
+        batch_center = (batch_sum / batch_n.clamp_min(1.0)).to(self.center.dtype)
         self.center = self.center * self.center_momentum + batch_center * (
             1.0 - self.center_momentum
         )

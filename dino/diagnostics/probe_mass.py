@@ -4,7 +4,7 @@ Tests whether the representation encodes jet mass information.
 Probes both ungroomed mass (from 4-momentum) and soft-drop mass.
 
 Usage:
-    python dino/probe_mass.py \
+    python dino/diagnostics/probe_mass.py \
         --output-file experiments/.../inference_val_jetclass/output_val_jetclass_best-0.pt \
         --root-dir /dev/shm/JetClass/raw/val_5M
 """

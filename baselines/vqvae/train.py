@@ -2,7 +2,7 @@
 """Train the shared VQ-VAE for particle tokenization.
 
 Usage:
-    python baselines/vqvae/train.py -c baselines/nrp/configs/vqvae/train.yaml
+    python baselines/vqvae/train.py -c baselines/vqvae/configs/vqvae-shared.yaml
 
 The VQ-VAE tokenizes per-particle RINO kinematics (7 features) into discrete
 codebook indices. The trained checkpoint is used downstream by MPMv1 (masked
@@ -10,9 +10,7 @@ prediction) and OmniJet-alpha (autoregressive prediction).
 """
 
 import argparse
-import os
 import sys
-from itertools import cycle, islice
 from pathlib import Path
 
 import h5py
@@ -30,73 +28,6 @@ if str(_BASELINES_DIR) not in sys.path:
 _PROJECT_ROOT = _BASELINES_DIR.parent
 
 from vqvae.vqvae_lightning import SharedVQVAELightning  # noqa: E402
-
-# ── RINO feature computation (same as mpmv1/src/datamodules/rino_iterator.py) ──
-import awkward as ak  # noqa: E402
-import uproot  # noqa: E402
-
-_NORM = {
-    "log_pt": {"mean": 1.7, "std": 1.8},
-    "log_energy": {"mean": 2.0, "std": 1.8},
-    "log_rel_pt": {"mean": -4.7, "std": 1.8},
-    "log_rel_energy": {"mean": -4.7, "std": 1.8},
-    "deta": {"mean": 0.0, "std": 0.14},
-    "dphi": {"mean": 0.0, "std": 0.14},
-    "delta_R": {"mean": 0.14, "std": 0.25},
-}
-_EPS = np.finfo(np.float32).eps
-_LABEL_BRANCHES = [
-    "label_QCD", "label_Hbb", "label_Hcc", "label_Hgg", "label_H4q",
-    "label_Hqql", "label_Zqq", "label_Wqq", "label_Tbqq", "label_Tbl",
-]
-
-
-def _norm(x, key):
-    return (x - _NORM[key]["mean"]) / _NORM[key]["std"]
-
-
-def _load_rino_root(filepath, max_n_csts=128):
-    """Load a JetClass ROOT file and return RINO features."""
-    branches = ["part_energy", "part_px", "part_py", "part_pz", "part_deta", "part_dphi"]
-    jet_branches = ["jet_pt", "jet_energy"]
-
-    with uproot.open(filepath) as f:
-        treename = None
-        for k, v in f.items():
-            if getattr(v, "classname", "") == "TTree":
-                treename = k.split(";")[0]
-                break
-        tree = f[treename]
-        outputs = tree.arrays(filter_name=branches, library="ak")
-        jet_out = tree.arrays(filter_name=jet_branches, library="np")
-
-    awk_arr = ak.pad_none(outputs, max_n_csts, clip=True)
-    part_energy = ak.to_numpy(awk_arr["part_energy"]).astype("float32").data
-    part_px = ak.to_numpy(awk_arr["part_px"]).astype("float32").data
-    part_py = ak.to_numpy(awk_arr["part_py"]).astype("float32").data
-    part_deta = ak.to_numpy(awk_arr["part_deta"]).astype("float32").data
-    part_dphi = ak.to_numpy(awk_arr["part_dphi"]).astype("float32").data
-
-    jet_pt = jet_out["jet_pt"].astype("float32")
-    jet_energy = jet_out["jet_energy"].astype("float32")
-
-    mask = ~np.isnan(part_energy)
-    for arr in [part_energy, part_px, part_py, part_deta, part_dphi]:
-        np.nan_to_num(arr, copy=False, nan=0.0)
-
-    part_pt = np.sqrt(part_px**2 + part_py**2)
-    features = np.stack([
-        _norm(np.log(part_pt + _EPS), "log_pt"),
-        _norm(np.log(part_energy + _EPS), "log_energy"),
-        _norm(np.log(part_pt / (jet_pt[:, None] + _EPS) + _EPS), "log_rel_pt"),
-        _norm(np.log(part_energy / (jet_energy[:, None] + _EPS) + _EPS), "log_rel_energy"),
-        _norm(np.sqrt(part_deta**2 + part_dphi**2), "delta_R"),
-        _norm(part_deta, "deta"),
-        _norm(part_dphi, "dphi"),
-    ], axis=-1)
-    features[~mask] = 0.0
-    return features, mask
-
 
 class RINOH5Dataset(torch.utils.data.Dataset):
     """HDF5 dataset for RINO-preprocessed JetClass data.
@@ -181,6 +112,8 @@ def main():
 
     # Data
     dl_config = config["training"]["dataloader"]
+    for key in ("train_path", "val_path"):
+        dl_config[key] = dl_config[key].replace("PROJECT_ROOT", str(_PROJECT_ROOT))
     datamodule = RINOVQVAEDataModule(
         train_path=dl_config["train_path"],
         val_path=dl_config["val_path"],

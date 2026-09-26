@@ -16,6 +16,11 @@ from torch.utils.data import DataLoader, IterableDataset
 
 logger = logging.getLogger(__name__)
 
+# Repository root (baselines/omnijet_alpha/gabbro/data/ -> 4 levels up); default
+# data paths follow the layout described in configs/data-README.md.
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+_MPM_RINO_DIR = _REPO_ROOT / "data" / "JetClass" / "mpm-rino"
+
 # Normalization statistics from dino/dataloader/jetclass/processors.py
 _NORM = {
     "log_pt": {"mean": 1.7, "std": 1.8},
@@ -137,8 +142,8 @@ class RINODataModule(L.LightningDataModule):
 
     def __init__(
         self,
-        train_path: str = "PROJECT_ROOT/data/JetClass/mpm-rino/train_100M_combined_QCD.h5",
-        val_path: str = "PROJECT_ROOT/data/JetClass/mpm-rino/val_5M_combined_QCD.h5",
+        train_path: str = str(_MPM_RINO_DIR / "train_100M_combined_QCD.h5"),
+        val_path: str = str(_MPM_RINO_DIR / "val_5M_combined_QCD.h5"),
         batch_size: int = 500,
         num_workers: int = 4,
         csts_dim: int = 7,

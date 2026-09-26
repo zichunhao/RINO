@@ -64,9 +64,12 @@ def load_events_hdf5(path: Path):
         k for k in data if not k.startswith("part_") and not k.startswith("npart_")
     ]
 
-    # Build real-particle mask from part_energy != 0
-    real_mask = ak.Array(data["part_energy"] != 0)  # (N, max_p) bool
-    part_info = {k: ak.Array(data[k])[real_mask] for k in part_keys}
+    # Build real-particle mask from part_energy != 0. Boolean indexing of a
+    # regular 2D array flattens it to 1D, so the per-event jagged structure is
+    # rebuilt with ak.unflatten from the per-event particle counts.
+    real_mask = data["part_energy"] != 0  # (N, max_p) numpy bool
+    counts = real_mask.sum(axis=1)
+    part_info = {k: ak.unflatten(data[k][real_mask], counts) for k in part_keys}
     original_arrays = {k: ak.Array(data[k]) for k in other_keys}
     return part_info, original_arrays
 
@@ -127,7 +130,9 @@ def subjet_logical_and(arr):
 
 
 def subjet_zeros_like(arr):
-    return ak.zeros_like(arr, np.int32)
+    # Reduce over constituents first so the output has one entry per subjet,
+    # matching the other aggregation functions.
+    return ak.values_astype(ak.zeros_like(ak.sum(arr, axis=-1)), np.int32)
 
 
 def jetclass_format(kt_subjets_consts, pid_aggregate: str = "or"):
@@ -157,24 +162,37 @@ def jetclass_format(kt_subjets_consts, pid_aggregate: str = "or"):
     subjet_dphi = ak.where(has_real, subjet_phi - jet_phi, 0.0)
     subjet_dphi = ak.where(has_real, (subjet_dphi + np.pi) % (2 * np.pi) - np.pi, 0.0)
 
-    subjet_d0val = ak.where(
-        has_real, ak.sum(kt_subjets_consts.d0val, axis=-1) / real_sum, 0.0
-    )
-    subjet_dzval = ak.where(
-        has_real, ak.sum(kt_subjets_consts.dzval, axis=-1) / real_sum, 0.0
-    )
-    subjet_d0err = ak.where(
-        has_real,
-        np.sqrt(ak.sum((kt_subjets_consts.d0err) ** 2, axis=-1)) / real_sum,
-        0.0,
-    )
-    subjet_dzerr = ak.where(
-        has_real,
-        np.sqrt(ak.sum((kt_subjets_consts.dzerr) ** 2, axis=-1)) / real_sum,
-        0.0,
-    )
+    # Impact parameters, charge and particle ID are optional: inputs that lack
+    # them (e.g. HDF5 files with kinematics only) get zero-valued subjet features.
+    fields = kt_subjets_consts.fields
 
-    subjet_charge = ak.sum(kt_subjets_consts.charge, axis=-1)
+    if "d0val" in fields:
+        subjet_d0val = ak.where(
+            has_real, ak.sum(kt_subjets_consts.d0val, axis=-1) / real_sum, 0.0
+        )
+        subjet_dzval = ak.where(
+            has_real, ak.sum(kt_subjets_consts.dzval, axis=-1) / real_sum, 0.0
+        )
+        subjet_d0err = ak.where(
+            has_real,
+            np.sqrt(ak.sum((kt_subjets_consts.d0err) ** 2, axis=-1)) / real_sum,
+            0.0,
+        )
+        subjet_dzerr = ak.where(
+            has_real,
+            np.sqrt(ak.sum((kt_subjets_consts.dzerr) ** 2, axis=-1)) / real_sum,
+            0.0,
+        )
+    else:
+        subjet_d0val = ak.zeros_like(subjet_px)
+        subjet_dzval = ak.zeros_like(subjet_px)
+        subjet_d0err = ak.zeros_like(subjet_px)
+        subjet_dzerr = ak.zeros_like(subjet_px)
+
+    if "charge" in fields:
+        subjet_charge = ak.sum(kt_subjets_consts.charge, axis=-1)
+    else:
+        subjet_charge = ak.zeros_like(subjet_px)
     subjet_is_real = subjet_logical_or(kt_subjets_consts.is_real)
 
     pid_aggregate = pid_aggregate.lower()
@@ -191,11 +209,19 @@ def jetclass_format(kt_subjets_consts, pid_aggregate: str = "or"):
             f"Invalid PID aggregation method: {pid_aggregate}. Choose 'or', 'and', 'zero', or 'sum'."
         )
 
-    subjet_isChargedHadron = aggregate(kt_subjets_consts.isChargedHadron * real_mask)
-    subjet_isNeutralHadron = aggregate(kt_subjets_consts.isNeutralHadron * real_mask)
-    subjet_isPhoton = aggregate(kt_subjets_consts.isPhoton * real_mask)
-    subjet_isElectron = aggregate(kt_subjets_consts.isElectron * real_mask)
-    subjet_isMuon = aggregate(kt_subjets_consts.isMuon * real_mask)
+    if "isChargedHadron" in fields:
+        subjet_isChargedHadron = aggregate(kt_subjets_consts.isChargedHadron * real_mask)
+        subjet_isNeutralHadron = aggregate(kt_subjets_consts.isNeutralHadron * real_mask)
+        subjet_isPhoton = aggregate(kt_subjets_consts.isPhoton * real_mask)
+        subjet_isElectron = aggregate(kt_subjets_consts.isElectron * real_mask)
+        subjet_isMuon = aggregate(kt_subjets_consts.isMuon * real_mask)
+    else:
+        zero = ak.values_astype(ak.zeros_like(subjet_is_real), np.int32)
+        subjet_isChargedHadron = zero
+        subjet_isNeutralHadron = zero
+        subjet_isPhoton = zero
+        subjet_isElectron = zero
+        subjet_isMuon = zero
 
     return {
         "px": subjet_px,

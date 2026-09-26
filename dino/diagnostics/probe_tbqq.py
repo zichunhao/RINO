@@ -1,7 +1,7 @@
 """kNN + frozen linear probe on saved backbone embeddings for Tbqq vs QCD.
 
 Usage:
-    python dino/probe_tbqq.py \
+    python dino/diagnostics/probe_tbqq.py \
         --train-output experiments/finetune-jetnet-final/<model>/run-1/inference/output_test_jetnet_best-0.pt \
         --test-output experiments/finetune-jetnet-final/<model>/run-1/inference/output_test_jetclass_best-0.pt \
         --k 20

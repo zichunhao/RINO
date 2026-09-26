@@ -98,12 +98,14 @@ def main():
     parser.add_argument(
         "--data-dir",
         default="PROJECT_ROOT/data/JetClass/mpm-rino",
-        help="Directory containing the combined HDF5 files.",
+        help="Directory containing the combined HDF5 files "
+        "(PROJECT_ROOT expands to the repository root).",
     )
     parser.add_argument(
         "--ckpt",
         default="PROJECT_ROOT/experiments/vqvae/vqvae-shared/checkpoints/last.ckpt",
-        help="Path to the shared VQ-VAE checkpoint.",
+        help="Path to the shared VQ-VAE checkpoint "
+        "(PROJECT_ROOT expands to the repository root).",
     )
     parser.add_argument(
         "--chunk-size",
@@ -133,6 +135,8 @@ def main():
         help="Overwrite existing *_tokens.h5 sibling files.",
     )
     args = parser.parse_args()
+    args.data_dir = args.data_dir.replace("PROJECT_ROOT", str(_project_dir))
+    args.ckpt = args.ckpt.replace("PROJECT_ROOT", str(_project_dir))
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")

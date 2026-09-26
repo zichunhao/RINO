@@ -13,33 +13,33 @@ Metrics:
 
 Usage:
     # Single experiment, single split
-    python dino/embedding_diagnostics.py \
+    python dino/diagnostics/embedding_diagnostics.py \
         --experiment-dir experiments/dino-g6-l2-pbin \
         --splits test_jetclass test_jetnet \
         --epoch 199
 
     # Compare multiple experiments
-    python dino/embedding_diagnostics.py \
+    python dino/diagnostics/embedding_diagnostics.py \
         --experiment-dir experiments/dino-g6-l2-pbin \
                         experiments/dino-ibot-g6l2-pbin \
         --splits test_jetclass test_jetnet \
         --epoch 199
 
     # All experiments matching a pattern
-    python dino/embedding_diagnostics.py \
+    python dino/diagnostics/embedding_diagnostics.py \
         --base-dir experiments \
         --pattern "dino-*" \
         --splits test_jetclass test_jetnet \
         --epoch 199
 
     # CKA between two splits (cross-domain similarity)
-    python dino/embedding_diagnostics.py \
+    python dino/diagnostics/embedding_diagnostics.py \
         --experiment-dir experiments/dino-g6-l2-pbin \
         --cka-splits test_jetnet test_jetclass \
         --epoch 199
 
     # Save to JSON
-    python dino/embedding_diagnostics.py \
+    python dino/diagnostics/embedding_diagnostics.py \
         --experiment-dir experiments/dino-g6-l2-pbin \
         --splits test_jetclass test_jetnet \
         --epoch 199 -o diagnostics.json

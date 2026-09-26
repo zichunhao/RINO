@@ -25,9 +25,7 @@ class RINOIteratorWrapper:
         boost_mopt=0,
     ):
         self.base_iterator = base_iterator
-        self.n_classes = getattr(base_iterator, "n_classes", 10)
-        if not hasattr(self.base_iterator, "n_classes"):
-            self.n_classes = base_iterator.get_nclasses()
+        self.n_classes = base_iterator.get_nclasses()
 
     def __next__(self):
         result = next(self.base_iterator)

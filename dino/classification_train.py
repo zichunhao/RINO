@@ -21,7 +21,7 @@ from utils.producers import (
     get_scheduler,
 )
 from utils.logger import LOGGER, configure_logger
-from utils.device import get_available_device
+from utils.device import get_available_device, check_bf16_support
 from models import AssembledModel
 
 from itertools import cycle
@@ -578,15 +578,23 @@ def process_batch(
                     max_norm=grad_clip,
                 )
 
-        if isinstance(optimizer, SAM):
+        # accelerator.prepare() wraps the optimizer; unwrap it to detect SAM.
+        _raw_opt = getattr(optimizer, "optimizer", optimizer)
+        if isinstance(_raw_opt, SAM):
             # SAM two-step: ascend with current gradient, recompute at perturbed point
-            optimizer.first_step()
-            # Second forward-backward at perturbed weights
+            _raw_opt.first_step()
+            # Second forward-backward at perturbed weights, with the same loss
+            # (including label smoothing on the targets) as the first pass
             optimizer.zero_grad()
             rep2, logits2 = model(particles=particles, jets=jets, mask=mask)
-            loss2 = criterion(logits2.squeeze(), labels.float())
-            if label_smoothing > 0:
-                loss2 = loss2 * (1 - label_smoothing) + 0.5 * label_smoothing
+            if logits2.shape[-1] == 1:
+                logits2 = logits2.squeeze(-1)
+                targets2 = labels.float()
+                if label_smoothing > 0:
+                    targets2 = targets2 * (1 - label_smoothing) + 0.5 * label_smoothing
+            else:
+                targets2 = labels
+            loss2 = criterion(logits2, targets2)
             if accelerator is not None:
                 accelerator.backward(loss2)
             else:
@@ -596,7 +604,7 @@ def process_batch(
                     accelerator.clip_grad_norm_(model.parameters(), max_norm=grad_clip)
                 else:
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=grad_clip)
-            optimizer.second_step()
+            _raw_opt.second_step()
         else:
             optimizer.step()
     else:
@@ -744,6 +752,25 @@ def train(config: dict[str, Any], use_wandb: bool = False) -> None:
 
     use_accelerate = config.get("accelerate", False)
 
+    # Precision: `float32_matmul_precision` sets the fp32 matmul mode (e.g. "high"
+    # enables TF32), and `use_bf16` enables bf16 mixed precision through
+    # Accelerate when the device supports it (accelerate mode only).
+    float32_matmul_precision = config.get("float32_matmul_precision", "highest")
+    torch.set_float32_matmul_precision(float32_matmul_precision)
+    LOGGER.info(f"float32_matmul_precision set to {float32_matmul_precision!r}")
+
+    want_bf16 = config.get("use_bf16", False)
+    # Accelerate selects its own device (CUDA, then MPS, then CPU)
+    bf16_device = get_available_device() if use_accelerate else device
+    if want_bf16 and not check_bf16_support(bf16_device):
+        LOGGER.warning(
+            f"use_bf16=True requested but bfloat16 is NOT supported on device "
+            f"'{bf16_device}'. Falling back to float32."
+        )
+        want_bf16 = False
+    mixed_precision = "bf16" if want_bf16 else "no"
+    LOGGER.info(f"mixed_precision={mixed_precision!r} (use_bf16={want_bf16})")
+
     # Initialize accelerator first
     if use_accelerate:
         # https://github.com/huggingface/transformers/issues/34699#issuecomment-2510417946
@@ -755,7 +782,9 @@ def train(config: dict[str, Any], use_wandb: bool = False) -> None:
         # so we need to set a longer timeout
         kwargs = InitProcessGroupKwargs(timeout=timedelta(days=365))
         accelerator = Accelerator(
-            dataloader_config=dataloader_config, kwargs_handlers=[kwargs]
+            dataloader_config=dataloader_config,
+            kwargs_handlers=[kwargs],
+            mixed_precision=mixed_precision,
         )
         device = accelerator.device
 

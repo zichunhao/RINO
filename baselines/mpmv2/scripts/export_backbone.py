@@ -8,11 +8,12 @@ experiment=pretrain_rino``, extracts the ``csts_emb``, ``csts_id_emb``, and
 
 Usage:
     python scripts/export_backbone.py \
-        --ckpt PROJECT_ROOT/experiments/mpm/pretrain-mpmv2-rino/checkpoints/best.ckpt \
-        --output PROJECT_ROOT/experiments/mpm/pretrain-mpmv2-rino/backbone.pkl
+        --ckpt <path/to/pretrain_run>/checkpoints/ \
+        --output <path/to/pretrain_run>/backbone.pkl
 """
 
 import argparse
+import inspect
 import logging
 from pathlib import Path
 
@@ -21,7 +22,7 @@ import torch as T
 
 root = rootutils.setup_root(search_from=__file__, pythonpath=True)
 
-from src.models.mpm import MPM  # noqa: E402
+from src.models.mpm import MaskedParticleModelling as MPM  # noqa: E402
 from src.models.utils import JetBackbone  # noqa: E402
 
 log = logging.getLogger(__name__)
@@ -58,7 +59,13 @@ def main() -> None:
     log.info(f"Resolved checkpoint: {ckpt_path}")
 
     log.info(f"Loading MPM Lightning checkpoint from {ckpt_path}")
-    model = MPM.load_from_checkpoint(str(ckpt_path), map_location="cpu")
+    # The checkpoint pickles the model hyperparameters (functools.partial
+    # objects), so it needs a full unpickle; Lightning versions that expose
+    # weights_only otherwise defer to torch's weights-only default.
+    load_kwargs = {"map_location": "cpu"}
+    if "weights_only" in inspect.signature(MPM.load_from_checkpoint).parameters:
+        load_kwargs["weights_only"] = False
+    model = MPM.load_from_checkpoint(str(ckpt_path), **load_kwargs)
     model.eval()
 
     log.info("Assembling JetBackbone from pretrained submodules")

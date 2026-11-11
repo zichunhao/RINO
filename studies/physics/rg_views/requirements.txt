@@ -1,0 +1,12 @@
+# Analysis scripts (rg_views.py, rg_metrics.py, rg_plot.py, to_jetclass.py)
+numpy
+scipy
+awkward>=2
+uproot>=5
+vector
+fastjet>=3.4
+h5py
+matplotlib
+torch
+# optional, faster EMD (on macOS also install llvm-openmp / libomp)
+wasserstein

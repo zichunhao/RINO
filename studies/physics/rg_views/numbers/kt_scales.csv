@@ -1,0 +1,37 @@
+selection,n_jets,fraction_of_qcd_jets,level,N,q_median_GeV,q_p25_GeV,q_p75_GeV
+QCD jets with >= 17 detector-level constituents (as Table 8; the top-vs-QCD curve),173690,0.889,detector,2,9.951,6.102,17.240
+QCD jets with >= 17 detector-level constituents (as Table 8; the top-vs-QCD curve),173690,0.889,detector,3,5.741,3.703,9.088
+QCD jets with >= 17 detector-level constituents (as Table 8; the top-vs-QCD curve),173690,0.889,detector,4,3.912,2.564,5.999
+QCD jets with >= 17 detector-level constituents (as Table 8; the top-vs-QCD curve),173690,0.889,detector,6,2.253,1.470,3.412
+QCD jets with >= 17 detector-level constituents (as Table 8; the top-vs-QCD curve),173690,0.889,detector,8,1.486,0.948,2.266
+QCD jets with >= 17 detector-level constituents (as Table 8; the top-vs-QCD curve),173690,0.889,detector,16,0.456,0.236,0.764
+QCD jets with >= 17 hadrons,186734,0.956,hadron,2,8.273,4.807,15.893
+QCD jets with >= 17 hadrons,186734,0.956,hadron,3,4.958,3.124,8.191
+QCD jets with >= 17 hadrons,186734,0.956,hadron,4,3.514,2.283,5.491
+QCD jets with >= 17 hadrons,186734,0.956,hadron,6,2.158,1.419,3.257
+QCD jets with >= 17 hadrons,186734,0.956,hadron,8,1.497,0.977,2.244
+QCD jets with >= 17 hadrons,186734,0.956,hadron,16,0.546,0.324,0.855
+hadronization test: QCD jets with >= 17 partons and >= 17 hadrons,78420,0.401,parton,2,16.661,10.507,28.145
+hadronization test: QCD jets with >= 17 partons and >= 17 hadrons,78420,0.401,parton,3,8.453,5.808,13.058
+hadronization test: QCD jets with >= 17 partons and >= 17 hadrons,78420,0.401,parton,4,5.365,3.865,7.786
+hadronization test: QCD jets with >= 17 partons and >= 17 hadrons,78420,0.401,parton,6,2.879,2.164,3.955
+hadronization test: QCD jets with >= 17 partons and >= 17 hadrons,78420,0.401,parton,8,1.845,1.405,2.494
+hadronization test: QCD jets with >= 17 partons and >= 17 hadrons,78420,0.401,parton,16,0.462,0.259,0.732
+hadronization test: QCD jets with >= 17 partons and >= 17 hadrons,78420,0.401,hadron,2,16.448,10.564,27.448
+hadronization test: QCD jets with >= 17 partons and >= 17 hadrons,78420,0.401,hadron,3,8.652,6.230,12.791
+hadronization test: QCD jets with >= 17 partons and >= 17 hadrons,78420,0.401,hadron,4,5.801,4.385,8.036
+hadronization test: QCD jets with >= 17 partons and >= 17 hadrons,78420,0.401,hadron,6,3.447,2.687,4.509
+hadronization test: QCD jets with >= 17 partons and >= 17 hadrons,78420,0.401,hadron,8,2.377,1.877,3.065
+hadronization test: QCD jets with >= 17 partons and >= 17 hadrons,78420,0.401,hadron,16,0.912,0.709,1.182
+detector test: QCD jets with >= 17 hadrons and >= 17 detector-level constituents,166667,0.853,hadron,2,9.338,5.661,17.362
+detector test: QCD jets with >= 17 hadrons and >= 17 detector-level constituents,166667,0.853,hadron,3,5.455,3.610,8.768
+detector test: QCD jets with >= 17 hadrons and >= 17 detector-level constituents,166667,0.853,hadron,4,3.841,2.621,5.810
+detector test: QCD jets with >= 17 hadrons and >= 17 detector-level constituents,166667,0.853,hadron,6,2.349,1.629,3.427
+detector test: QCD jets with >= 17 hadrons and >= 17 detector-level constituents,166667,0.853,hadron,8,1.628,1.129,2.357
+detector test: QCD jets with >= 17 hadrons and >= 17 detector-level constituents,166667,0.853,hadron,16,0.601,0.389,0.901
+detector test: QCD jets with >= 17 hadrons and >= 17 detector-level constituents,166667,0.853,detector,2,10.021,6.136,17.407
+detector test: QCD jets with >= 17 hadrons and >= 17 detector-level constituents,166667,0.853,detector,3,5.778,3.720,9.156
+detector test: QCD jets with >= 17 hadrons and >= 17 detector-level constituents,166667,0.853,detector,4,3.935,2.577,6.041
+detector test: QCD jets with >= 17 hadrons and >= 17 detector-level constituents,166667,0.853,detector,6,2.266,1.478,3.432
+detector test: QCD jets with >= 17 hadrons and >= 17 detector-level constituents,166667,0.853,detector,8,1.495,0.954,2.280
+detector test: QCD jets with >= 17 hadrons and >= 17 detector-level constituents,166667,0.853,detector,16,0.461,0.239,0.770

@@ -7,7 +7,7 @@ it. The commands are documented in three subdirectories:
 |---|---|
 | [`evaluation/`](evaluation/README.md) | finetuning and probe results: top-tagging comparison, data efficiency, cross-topology and TopTagging→JetClass transfer, regularization sweep, MLP vs. linear head, ablations |
 | [`representation/`](representation/README.md) | domain shift of finetuned and pretrained representations, cosine similarity across kT scales |
-| [`physics/`](physics/README.md) | physical scales of the kT views, constituent multiplicity, positional-encoding collisions, scale-factor proxy |
+| [`physics/`](physics/README.md) | physical scales of the kT views, constituent multiplicity, positional-encoding collisions, scale-factor proxy, and what the kT views keep and forget (`rg_views/`) |
 
 All commands run from the repository root in the `rino` environment and
 write to `experiments/` by default. Most tables share one pipeline:
@@ -44,6 +44,7 @@ cambridge` or `--algorithm antikt` (see `evaluation/README.md`, "Ablations").
 | Positional-encoding bin-collision rates, `r_scale` and `r_max` | `physics/pe_collision.py` | `physics/README.md` |
 | Constituent-multiplicity CDF and dataset statistics | `physics/nparticles_count.py` → `physics/nparticles_cdf.py` | `physics/README.md` |
 | Physical scales of the kT views | `physics/kt_scales.py` | `physics/README.md` |
+| What the kT views keep and forget: top vs QCD, hadronization and detector tests, kT vs C/A vs anti-kT (rebuttal appendix) | `physics/rg_views/rg_views.py` → `physics/rg_views/rg_metrics.py classify` → `physics/rg_views/rg_plot.py`; samples from the `external/jetclass_generation` submodule | `physics/rg_views/README.md` |
 | Finetuning hyperparameters | `configs/gen_le_configs.py` (generated finetuning configs) | top-level README, "Finetuning and OOD evaluation" |
 | Robustness to finetuning regularization | `evaluation/finetune_reg_sweep.py generate`, `evaluation/harvest_finetune.py`, `evaluation/finetune_reg_sweep.py summarize` | `evaluation/README.md`, "Robustness to finetuning regularization" |
 | Progressive construction of the recipe; independent design comparisons | Variants of `configs/dino/rino.yaml` (row-by-row changes in `evaluation/README.md`); then the Table 1 pipeline and `evaluation/make_table.py --gain-ref` | `evaluation/README.md`, "Ablations" |

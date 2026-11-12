@@ -19,6 +19,11 @@ the `ZJetsToNuNu_*.root` files. By default, outputs go to
 | `pe_collision.py` | Table `tab:pe-collision` and the `r_scale` / `r_max` values (App. "Architecture Details", Positional encoding) | JetClass QCD ROOT (`part_deta/dphi`), validation split | `pe_collision/pe_collision.{json,csv}` |
 | `scale_factor_proxy.py` | Table `tab:sf-proxy` (App. "Scale-Factor Proxy") | TopTagging-finetuned runs: `run-*/inference/output_test_{toptagging,jetclass}_best-0.pt` | `sf_proxy/sf_proxy_<method>.json` |
 
+The subdirectory [`rg_views/`](rg_views/README.md) holds a separate study with
+its own README: which information survives in each kT view (top vs QCD,
+hadronization and detector tests, and the comparison with C/A and anti-kT). It
+uses regenerated samples, not the public JetClass files.
+
 `_common.py` holds the shared helpers: path placeholders, ROOT/HDF5 loading,
 and access to the release modules under `dino/`. Every script documents all of
 its options under `--help`.

@@ -1,0 +1,4 @@
+[submodule "external/jetclass_generation"]
+	path = external/jetclass_generation
+	url = https://github.com/jmduarte/jetclass_generation.git
+	branch = rg-study
